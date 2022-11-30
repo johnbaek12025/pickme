@@ -75,7 +75,7 @@ def setup_logging(appname=None, appvers=None, debug=None, filename=None,
         hand = logging.StreamHandler()
     else:
         hand = EnhancedRotatingFileHandler(filename=filename, when='M', interval=interval, maxBytes=max_bytes,
-                                           backupCount=backup_count)
+                                           backupCount=backup_count, encoding='utf-8')
 
     # fmt = '%(asctime)s.%(msecs)03d %(processName)s %(threadName)s %(name)s %(funcName)s: %(message)s' \
     #     if level == logging.DEBUG else '%(asctime)s.%(msecs)03d %(processName)s %(threadName)s %(message)s'
@@ -85,7 +85,6 @@ def setup_logging(appname=None, appvers=None, debug=None, filename=None,
 
     datefmt = '%Y.%m.%d %H:%M:%S'
     hand.setFormatter(logging.Formatter(fmt, datefmt))
-
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
     root_logger.handlers = []

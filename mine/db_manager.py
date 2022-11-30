@@ -1,5 +1,6 @@
 import logging
-import pymysql
+# import pymysql
+import pymysqlpool
 logger = logging.getLogger(__name__)
 
 
@@ -11,7 +12,9 @@ class DBManager(object):
 
     def connect(self, db_host, db_port, db_name, db_user, db_pass=None):        
         try:
-            self.conn = pymysql.connect(host=db_host, user=db_user,port=int(db_port), password=db_pass, db=db_name, charset='utf8')
+            pool1 = pymysqlpool.ConnectionPool(size=2, maxsize=3, host=db_host, user=db_user,port=int(db_port), password=db_pass, db=db_name, charset='utf8')
+            self.conn = pool1.get_connection()
+            # self.conn = pymysql.connect(host=db_host, user=db_user,port=int(db_port), password=db_pass, db=db_name, charset='utf8')
         except Exception as err:
             logger.error(f"connection to {self.uri} failed : {err}")
             raise

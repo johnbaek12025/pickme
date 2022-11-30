@@ -32,7 +32,6 @@ def get_myip(wait_seconds=180, proxy=None):
     q = queue.Queue()
 
     def try_get(que, proxy=proxy):
-        print(f"proxy is {proxy}")
         myip = ''
         try:
             if proxy:

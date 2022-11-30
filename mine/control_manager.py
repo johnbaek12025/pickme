@@ -9,12 +9,12 @@ import requests
 from mine.ip_util import switchIp2
 from mine.pickme import PickMe
 from mine.common import to_int, to_bool
-from mine.exceptions import ConfigError, ContentsError
+from mine.exceptions import ConfigError, ContentsError, IPChangeError
 from .db_manager import DBManager
 logger = logging.getLogger(__name__)
 import timeit
 import ast
-
+from pymysql.err import OperationalError, InterfaceError
 
 
 class ControlManager(object):
@@ -23,10 +23,7 @@ class ControlManager(object):
         self.sleep_interval = None
         self.wooriq_db = None
         self.header_list_path = None
-        # self.now_datetime = datetime.datetime.today().strftime("%Y-%m-%d")
-        # self.tomorrow_datetime = (datetime.datetime.today() + datetime.timedelta(days=1)).strftime("%Y/%m/%d")
-        self.now_datetime = '2021-04-05'                
-        
+        self.now_datetime = datetime.datetime.today()
         
     def check_config(self, config_dict):                
         self.data_database = config_dict.get("data_database")        
@@ -41,7 +38,6 @@ class ControlManager(object):
         logger.info("connect to databases")
         self.wooriq_db = DBManager()
         self.wooriq_db.connect(**self.data_database)
-   
 
     def disconnect_from_db(self):
         logger.info("disconnect from databases")
@@ -52,28 +48,78 @@ class ControlManager(object):
         self.check_config(config)
 
     def run(self):
-        logger.info("main start")
-        while True:
-            try:                
-                print(self.header_list_path)
-                pm = PickMe(itemid="2339357717", keyword='1구 인덕션', header_list_path=self.header_list_path)
-                pm.main()
+        logger.info("run_method")        
+        try:
+            while True:
+                ip_address = switchIp2()
+                if not ip_address:
+                    break
+                # pm = PickMe(itemid='77959174230', keyword='1구 인덕션', header_list_path=self.header_list_path)
+                # pm.main()
+                self.connect_to_db()
+                for i, data_dict in enumerate(self.preprocess(), start=1):                    
+                    log = {'ip_address': ip_address, 'keyword': data_dict['keyword'], 'ProductID': data_dict['itemid']}
+                    log['ip_address'] = self.check_log(log)                    
+                    if i % 5 == 0:                        
+                        ip_address = switchIp2()
+                        self.connect_to_db()
+                        log = {'ip_address': ip_address, 'keyword': data_dict['keyword'], 'ProductID': data_dict['itemid']}
+                        log['ip_address'] = self.check_log(log)
+                    pm = PickMe(itemid=data_dict['itemid'], keyword=data_dict['keyword'], header_list_path=self.header_list_path)
+                    pm.main()
+                    self.postprocess(log)            
+                    time.sleep(10)
                 time.sleep(self.sleep_interval)
-            except KeyboardInterrupt as err:
-                logger.info(f"key interruption")
-            except ConfigError as err:
-                logger.info(err)
-            # finally:
-            #     self.disconnect_from_db()
+        except KeyboardInterrupt as err:
+            logger.info(f"key interruption")
+        except IPChangeError as err:
+            logger.info(f"{err}")
+        except ConfigError as err:
+            logger.info(err)
+        finally:
+            self.disconnect_from_db()
             
     def preprocess(self):
         sql = f"""
-                SELECT  keyword,
-                        productid
-                FROM    test.cp_keywordlist 
-                where   DATE(regdate) = "{self.now_datetime}" 
-                order by regdate desc;
+        SELECT  cp.ProductID,
+                cp.Keyword
+        FROM    wooriq.cp_keywordlist as cp,
+                wooriq.memberwork as mw
+        where mw.UID = cp.UID
+        and   mw.KeywordState in ('1', '2')
+        and	  Keyword is not NULL
+        and   Keyword != ''
+        and	  cp.mobile_yn = 0
         """
-        got_data = self.wooriq_db.get_all_rows(sql)        
-        for d in got_data:            
-            print(d)
+        got_data = self.wooriq_db.get_all_rows(sql)
+        data_list = list()
+        for d in got_data:
+            data_list.append({'itemid': d[0], 'keyword': d[1]})
+        random.shuffle(data_list)
+        return data_list
+    
+    def postprocess(self, log):
+        sql = f"""
+        Insert into wooriq.cp_searchlog (IP_Address, Keyword, ProductID) values ("{log['ip_address']}", "{log['keyword']}", "{log['ProductID']}")
+        """
+        self.wooriq_db.modify(sql, commit=True)
+        
+    def check_log(self, log):   
+        sql = f"""
+        select  *
+        from 	wooriq.cp_searchlog
+        where   Keyword = "{log['keyword']}"
+        and     ProductID = "{log['ProductID']}"
+        and     IP_Address = "{log['ip_address']}"
+        """
+        got_data = self.wooriq_db.get_all_rows(sql)
+            
+        if not len(got_data):
+            return log['ip_address']
+        else:
+            ip_address = switchIp2()
+            self.connect_to_db()
+            if not ip_address:
+                raise IPChangeError
+            log['ip_address'] = ip_address
+            return self.check_log(log)
