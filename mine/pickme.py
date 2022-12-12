@@ -18,16 +18,17 @@ from mine.common import create_dir, save_file
 
 class PickMe:
     def __init__(self, **kwargs) -> None:
-        self.pick_vendor_item_id = kwargs["itemid"]
         self.keyword = kwargs["keyword"]
         self.query_string = parse.quote_plus(self.keyword)
         self.session = None        
         self.wtime = numpy.arange(0.5, 2, 0.5)
+        self.vendoritemid = kwargs['vendoritemid']
         self.headers_path = kwargs['header_list_path']['path']
-        self.main_url = 'http://www.coupang.com'        
-        self.search_url = "https://www.coupang.com/np/search?q={query_string}&channel=auto&component=&eventCategory=SRP&trcid=&traid=&sorter=scoreDesc&minPrice=&maxPrice=&priceRange=&filterType=&listSize=&filter=&isPriceRange=false&brand=&offerCondition=&rating=0&page={page}&rocketAll=false&searchIndexingToken=1=6&backgroundColor="
-        self.search_url_price = "https://www.coupang.com/np/search?rocketAll=false&q={query_string}&brand=&offerCondition=&filter=&availableDeliveryFilter=&filterType=&isPriceRange=true&priceRange={price}&minPrice={price}&maxPrice={price}&page={page}&trcid=&traid=&filterSetByUser=true&channel=user&sorter=scoreDesc"
+        self.main_url = 'https://m.coupang.com/nm/'
+        self.search_url = f"https://m.coupang.com/nm/search?q={self.query_string}"
+        self.target_url = f"https://m.coupang.com/vm/products/{kwargs['residue']}{kwargs['vendoritemid']}&searchId="
         self.file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
+        self.searchId = None
 
     def set_headers(self):
         with open(os.path.join(os.getcwd(), self.headers_path), 'rt', encoding='utf-8-sig') as f:
@@ -38,51 +39,23 @@ class PickMe:
         self.session = requests.Session()
         self.session.headers = headers
 
-    def set_cookies(self):
-        self.status_validation(self.main_url)
-        self.session.cookies.set(**{"name": "searchKeyword", "domain": ".coupang.com",
-                                    "value": self.query_string,
-                                    "rest": {"httpOnly": False, "sameSite": '', "secure": False},  "path": "/",})
-        self.session.cookies.set(**{"name": "searchKeywordType", "domain": ".coupang.com",
-                                    "value": self.query_string,
-                                    "rest": {"httpOnly": False, "sameSite": '', "secure": False},  "path": "/",})
-
     def main(self):
         self.set_headers()
-        self.set_cookies()   
-        product_link = self.bring_info()        
-        try:
-            target_url = self.main_url + product_link            
-        except TypeError:
-            logging.info(f"{self.pick_vendor_item_id} cannot find in product_list")
-            return  
-        logging.info(f"picked_product_link: {product_link}")
-        res = self.status_validation(target_url)            
+        self.status_validation(self.main_url)
+        self.set_searchId()
+        if not self.searchId:
+            logging.info(f"searchid of {self.keyword}, {self.vendoritemid} could not find~!!")
+            return
+        res = self.status_validation(self.target_url+self.searchId)
         create_dir(f'{self.file_path}\etc')
-        save_file(res, f'{self.file_path}\\etc\\{self.pick_vendor_item_id}.html')        
+        save_file(res, f'{self.file_path}\\etc\\{self.vendoritemid}_{self.keyword}.html')
             
-    def bring_info(self):
-        flag = False
-        for p in range(1, 100):
-            url = self.search_url.format(query_string=self.query_string, page=f'{p}')            
-            info = self.status_validation(url)            
-            try:
-                data = bf(info, 'html.parser')
-            except TypeError:
-                logging.info(f"Try again")
-                return self.bring_info()
-            li_tags = data.find_all('li', {'class': "plp-default__item"})            
-            if flag:
-                break
-            for i, li in enumerate(li_tags):
-                vendorid = li['data-vendor-item-id']
-                itemid = li['data-product-id']                
-                if vendorid == self.pick_vendor_item_id:
-                    product_link = li.find('a', href=True)                    
-                    flag = True
-                    return product_link['href']
-        return False
-            
+    def set_searchId(self):
+        res = self.status_validation(self.search_url)
+        data = bf(res, 'html.parser')
+        li_tag = data.find('li', {'class': "plp-default__item"})
+        product_link = li_tag.find('a', href=True)
+        self.searchId = re.sub(r'.+searchId','', product_link['href'])
             
     def status_validation(self, url, func_name=None):
         _name = "status_validation"

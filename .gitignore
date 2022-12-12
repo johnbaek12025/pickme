@@ -110,7 +110,10 @@ ipython_config.py
 #   in version control.
 #   https://pdm.fming.dev/#use-with-ide
 .pdm.toml
-
+control_manager_test.py
+test_async.py
+mn_test.py
+pickme_executor.bat
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
 
