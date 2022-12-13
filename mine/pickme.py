@@ -1,4 +1,3 @@
-import enum
 from msilib.schema import Error
 import os
 import random
@@ -26,7 +25,7 @@ class PickMe:
         self.headers_path = kwargs['header_list_path']['path']
         self.main_url = 'https://m.coupang.com/nm/'
         self.search_url = f"https://m.coupang.com/nm/search?q={self.query_string}"
-        self.target_url = f"https://m.coupang.com/vm/products/{kwargs['residue']}{kwargs['vendoritemid']}&searchId="
+        self.target_url = f"https://m.coupang.com/vm/products/{kwargs['residue']}?q={self.keyword}&searchId="
         self.file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
         self.searchId = None
 
@@ -39,23 +38,28 @@ class PickMe:
         self.session = requests.Session()
         self.session.headers = headers
 
-    def main(self):
+    def main(self):        
         self.set_headers()
         self.status_validation(self.main_url)
-        self.set_searchId()
+        self.set_searchId()        
         if not self.searchId:
-            logging.info(f"searchid of {self.keyword}, {self.vendoritemid} could not find~!!")
-            return
+            print(f"searchid of {self.keyword}, {self.vendoritemid} could not find~!!")
+            return 'traffic fails'
+        print(f"searchID: {self.searchId}")        
+        print(f"targeturl: {self.target_url+self.searchId}")
         res = self.status_validation(self.target_url+self.searchId)
         create_dir(f'{self.file_path}\etc')
         save_file(res, f'{self.file_path}\\etc\\{self.vendoritemid}_{self.keyword}.html')
+        return 'traffic success'
             
     def set_searchId(self):
         res = self.status_validation(self.search_url)
         data = bf(res, 'html.parser')
         li_tag = data.find('li', {'class': "plp-default__item"})
         product_link = li_tag.find('a', href=True)
-        self.searchId = re.sub(r'.+searchId','', product_link['href'])
+        residue = re.sub(r'.+searchId\=','', product_link['href'])
+        self.searchId = re.sub(r'\&clickEventId\=.+', '', residue)
+        
             
     def status_validation(self, url, func_name=None):
         _name = "status_validation"
@@ -73,14 +77,8 @@ class PickMe:
                 return res.text
         else:
             return None
-                
-        
-        
-            
-            
 
-    
+
 if __name__ == "__main__":
     c = PickMe()
     c.main()
-        
