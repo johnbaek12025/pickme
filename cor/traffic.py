@@ -40,11 +40,11 @@ async def save_traffic_log():
     pass
 
 
-async def work(keyword, residue, item_id):
+async def work(keyword, product_id, item_id):
     ses = CoupangClientSession()
     await set_headers(session=ses)
     await go_main_page(sesssion=ses)
     await search(session=ses, keyword=keyword)
-    await click(session=ses, keyword=keyword, product_id=residue, item_id=item_id)
+    await click(session=ses, keyword=keyword, product_id=product_id, item_id=item_id)
     await save_traffic_log()
 

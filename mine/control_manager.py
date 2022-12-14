@@ -60,7 +60,6 @@ class ControlManager(object):
         self.check_config(config)
 
     def get_swapped_ip(self, num, ProductID, ip_address=None):
-        print(f"ip_address1: {ip_address}")
         if ip_address == None or num % 5 == 0:
             try:
                 ip_address = switchIp2()        
@@ -68,44 +67,42 @@ class ControlManager(object):
                 print('테더링 확인 바랍니다.~~!!!')
                 time.sleep(self.sleep_interval)
                 self.get_swapped_ip(num, ProductID, ip_address)
-        print(f"ip_address2: {ip_address}")      
         time.sleep(self.db_sleep_interval)
         # self.connect_to_db()
         log = {'ProductID': ProductID, 'ip_address': ip_address}
         if self.check_ip_address(log):
-            print(f"ip_address3_ip: {ip_address}")
             return ip_address
         else:
-            print(f"ip_address3: {ip_address}")
             ip_address = self.get_swapped_ip(num, ProductID, None)
-            print(f"ip_address3_ip: {ip_address}")
             return ip_address
     
-    def run(self):
+    def run(self):        
         logger.info("run_method")
-        self.disconnect_from_db()        
-                        
+        self.disconnect_from_db()
         ip_address = None        
         try:            
             while True:                      
                 self.connect_to_db()
-                for num, data_dict in enumerate (self.preprocess()):                    
+                for num, data_dict in enumerate (self.preprocess()):
+                    print(data_dict)
                     ip_address = self.get_swapped_ip(num, data_dict['vendoritemid'], ip_address=ip_address)
-                    print(f"ip_address4: {ip_address}")      
+                    logging.info(f"current ip_address: {ip_address}")      
                     residue = re.search(r'[0-9]+\?itemId\=[0-9]+', data_dict['url'])
                     if not residue:
-                        continue
-                    data_dict['residue'] = residue.group(0)
-                    print(f"residue: {data_dict['residue']}")
-                    pm = PickMe(residue=data_dict['residue'], vendoritemid=data_dict['vendoritemid'], keyword=data_dict['keyword'], header_list_path=self.header_list_path)
+                        continue                    
+                    residue = residue.group(0)
+                    left = residue.split('?itemId=')                    
+                    pm = PickMe(item_id=left[1], product_id=left[0], vendoritemid=data_dict['vendoritemid'], keyword=data_dict['keyword'], header_list_path=self.header_list_path)                    
                     if pm.main() == 'traffic fails':
-                        continue                   
+                        logging.info(f'result of pm.main(): traffic fails')
+                        continue
+                    
                     self.postprocess({"ip_address": ip_address, "vendoritemid": data_dict['vendoritemid']})
                     # print()
         except KeyboardInterrupt as err:
             logger.info(f"key interruption")        
         except LogInsertError as err:
-            print(f'LogInsertError: {err}')
+            logging.info(f'LogInsertError: {err}')
         except ConfigError as err:
             logger.info(err)
         except:
@@ -116,22 +113,27 @@ class ControlManager(object):
             
     def preprocess(self):
         sql = f"""
-        SELECT  cp.Keyword,
-                cp.memo,
-                cp.ProductID
+        SELECT  cp.p_url,
+                cp.ProductID,
+                cp.Keyword
         FROM    wooriq.cp_keywordlist as cp,
                 wooriq.memberwork as mw
         where mw.UID = cp.UID
         and   mw.KeywordState in ('1', '2')
         and	  cp.Keyword is not NULL
         and   cp.Keyword != ''
-        and	  cp.memo regexp 'https.+'        
-        and	  cp.mobile_yn = 0
+        and	  cp.p_url regexp 'https.+'
+        and	  cp.mobile_yn in (0, 1)
         """
         got_data = self.wooriq_db.get_all_rows(sql)
         data_list = list()
         for d in got_data:
-            data_list.append({"url": d[1], 'vendoritemid': d[2], 'keyword': d[0]})
+            data_list.append({"url": d[0], 'vendoritemid': d[1], 'keyword': d[2]})
+        data_list.append({
+                            "url": "https://m.coupang.com/vm/products/1319235770?itemId=2339357717&q=1%EA%B5%AC%20%EC%9D%B8%EB%8D%95%EC%85%98&searchId=e9ce2f7218254e7bab74f6a4193b3dce",
+                            "vendoritemid": "77959174230",
+                            "keyword": "1구 인덕션"
+                        })
         random.shuffle(data_list)
         return data_list
     
@@ -139,7 +141,8 @@ class ControlManager(object):
         # sql = f"""
         # Insert into wooriq.cp_searchlog (IP_Address, ProductID) values ("{log['ip_address']}", "{log['vendoritemid']}")
         # """
-        # self.wooriq_db.modify(sql, commit=True)          
+        # self.wooriq_db.modify(sql, commit=True)    
+        logging.info(f"postprocess log: {log}")      
         result = requests.get(url=self.ins_url.format(vendoritemid = log['vendoritemid'],  ip_address=log['ip_address']))        
         if result.status_code == 200:
             logging.info(f"{log} insert succeed")
@@ -164,7 +167,7 @@ class ControlManager(object):
         # else:
         #     return False
         data = requests.get(url=self.sel_url.format(ip_address=log['ip_address'], ProductID=log['ProductID']))
-        print(self.sel_url.format(ip_address=log['ip_address'], ProductID=log['ProductID']))
+        logging.info(self.sel_url.format(ip_address=log['ip_address'], ProductID=log['ProductID']))
         if data.status_code == 200:
             try:
                 info = data.json()
@@ -175,7 +178,7 @@ class ControlManager(object):
                     return True
                 else:
                     regdate = info[-1]['regdate']
-                    print(f"regdate: {regdate}, type: {type(regdate)}")
+                    logging.info(f"regdate: {regdate}, type: {type(regdate)}")
                     regist_time = datetime.strptime(regdate, '%Y-%m-%d %H:%M:%S')
                     if self.ten_hours_ago > regist_time:
                         return True
