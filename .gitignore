@@ -12,6 +12,8 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+*.dll
+*.exe
 .Python
 build/
 develop-eggs/
@@ -23,6 +25,7 @@ lib/
 lib64/
 parts/
 sdist/
+list.json
 var/
 wheels/
 share/python-wheels/

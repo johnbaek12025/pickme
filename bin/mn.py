@@ -2,6 +2,7 @@ __appname__ = "pick_me"
 __version__ = "1.0"
 
 
+import asyncio
 import optparse
 import os
 import random

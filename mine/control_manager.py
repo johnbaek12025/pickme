@@ -126,13 +126,7 @@ class ControlManager(object):
         got_data = self.wooriq_db.get_all_rows(sql)
         data_list = list()
         for d in got_data:
-            data_list.append({"id": d[0], "url": d[1], 'vendoritemid': d[2], 'keyword': d[3]})
-        data_list.append({
-                            "id": "exception",
-                            "url": "https://m.coupang.com/vm/products/1319235770?itemId=2339357717&q=1%EA%B5%AC%20%EC%9D%B8%EB%8D%95%EC%85%98&searchId=e9ce2f7218254e7bab74f6a4193b3dce",
-                            "vendoritemid": "77959174230",
-                            "keyword": "1구 인덕션"
-                        })
+            data_list.append({"id": d[0], "url": d[1], 'vendoritemid': d[2], 'keyword': d[3]})        
         random.shuffle(data_list)
         return data_list
     
@@ -141,9 +135,7 @@ class ControlManager(object):
         # Insert into wooriq.cp_searchlog (IP_Address, ProductID) values ("{log['ip_address']}", "{log['vendoritemid']}")
         # """
         # self.wooriq_db.modify(sql, commit=True)
-        logging.info(f"postprocess log: {log}")
-        if log['id'] == "exception":
-            return        
+        logging.info(f"postprocess log: {log}")        
         self.connect_to_db()
         sql = f"""
         update cp_keywordlist set TotalWorkCount = TotalWorkCount + 1 , 

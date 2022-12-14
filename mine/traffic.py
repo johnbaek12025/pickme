@@ -1,20 +1,22 @@
-import random
 from urllib.parse import quote
 
 from aiohttp import ClientSession
 
 
-class CoupangClientSession(ClientSession):    
+class CoupangClientSession(ClientSession):
+    
     def __init__(self, *args, **kwargs):
         super(CoupangClientSession, self).__init__(*args, **kwargs)
         self.search_id = None
 
+async def work(keyword, product_id, item_id):
+    ses = CoupangClientSession()
+    await set_headers(session=ses)
 
-async def set_headers(session: CoupangClientSession, headers_list: list):
-    headers = random.choice(headers_list)
-    session._default_headers = headers
-    print(session.headers)
-    
+
+async def set_headers(session: CoupangClientSession):
+    print(f"session: {session}")
+    pass
 
 
 async def go_main_page(session: CoupangClientSession):
@@ -43,11 +45,5 @@ async def save_traffic_log():
     pass
 
 
-async def work(keyword, product_id, item_id, headers_list):
-    ses = CoupangClientSession()
-    await set_headers(session=ses, headers_list=headers_list)    
-    await go_main_page(sesssion=ses)
-    # await search(session=ses, keyword=keyword)
-    # await click(session=ses, keyword=keyword, product_id=product_id, item_id=item_id)
-    # await save_traffic_log()
 
+    
