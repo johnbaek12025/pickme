@@ -95,25 +95,23 @@ class ControlManager(object):
                     pm = PickMe(item_id=left[1], product_id=left[0], vendoritemid=data_dict['vendoritemid'], keyword=data_dict['keyword'], header_list_path=self.header_list_path)                    
                     if pm.main() == 'traffic fails':
                         logging.info(f'result of pm.main(): traffic fails')
-                        continue
-                    
-                    self.postprocess({"ip_address": ip_address, "vendoritemid": data_dict['vendoritemid']})
+                        continue                    
+                    self.postprocess({"id": data_dict['id'], "ip_address": ip_address, "vendoritemid": data_dict['vendoritemid']})
                     # print()
         except KeyboardInterrupt as err:
             logger.info(f"key interruption")        
         except LogInsertError as err:
             logging.info(f'LogInsertError: {err}')
         except ConfigError as err:
-            logger.info(err)
-        except:
-            logger.info('no data')
+            logger.info(err)        
         finally:
             self.disconnect_from_db()
             
             
     def preprocess(self):
         sql = f"""
-        SELECT  cp.p_url,
+        SELECT  cp.ID,
+                cp.p_url,
                 cp.ProductID,
                 cp.Keyword
         FROM    wooriq.cp_keywordlist as cp,
@@ -128,8 +126,9 @@ class ControlManager(object):
         got_data = self.wooriq_db.get_all_rows(sql)
         data_list = list()
         for d in got_data:
-            data_list.append({"url": d[0], 'vendoritemid': d[1], 'keyword': d[2]})
+            data_list.append({"id": d[0], "url": d[1], 'vendoritemid': d[2], 'keyword': d[3]})
         data_list.append({
+                            "id": "exception",
                             "url": "https://m.coupang.com/vm/products/1319235770?itemId=2339357717&q=1%EA%B5%AC%20%EC%9D%B8%EB%8D%95%EC%85%98&searchId=e9ce2f7218254e7bab74f6a4193b3dce",
                             "vendoritemid": "77959174230",
                             "keyword": "1구 인덕션"
@@ -141,13 +140,24 @@ class ControlManager(object):
         # sql = f"""
         # Insert into wooriq.cp_searchlog (IP_Address, ProductID) values ("{log['ip_address']}", "{log['vendoritemid']}")
         # """
-        # self.wooriq_db.modify(sql, commit=True)    
-        logging.info(f"postprocess log: {log}")      
-        result = requests.get(url=self.ins_url.format(vendoritemid = log['vendoritemid'],  ip_address=log['ip_address']))        
+        # self.wooriq_db.modify(sql, commit=True)
+        logging.info(f"postprocess log: {log}")
+        if log['id'] == "exception":
+            return        
+        self.connect_to_db()
+        sql = f"""
+        update cp_keywordlist set TotalWorkCount = TotalWorkCount + 1 , 
+                                  WorkCount = WorkCount + 1, 
+                                  LastWorkdt = now() 
+        where ID ={log['id']}
+        """
+        self.wooriq_db.modify(sql, commit=True)        
+        result = requests.get(url=self.ins_url.format(vendoritemid = log['vendoritemid'],  ip_address=log['ip_address']))
         if result.status_code == 200:
             logging.info(f"{log} insert succeed")
         else:
             raise LogInsertError (f"{log}")
+        
             
         
         

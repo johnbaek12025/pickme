@@ -13,7 +13,7 @@ import logging
 from urllib import parse
 from mine.ip_util import switchIp2
 from mine.common import create_dir, save_file
-
+logger = logging.getLogger(__name__)
 
 class PickMe:
     def __init__(self, **kwargs) -> None:
@@ -58,11 +58,15 @@ class PickMe:
     def set_searchId(self):
         res = self.status_validation(self.search_url)
         data = bf(res, 'html.parser')
-        save_file(res, f'{self.file_path}\\etc\\{self.vendoritemid}_{self.keyword}.html')
+        save_file(res, f'{self.file_path}\\etc\\{self.vendoritemid}_{self.keyword}.html')        
         li_tag = data.find('li', {'class': "plp-default__item"})
-        product_link = li_tag.find('a', href=True)
-        residue = re.sub(r'.+searchId\=','', product_link['href'])
-        self.searchId = re.sub(r'\&clickEventId\=.+', '', residue)
+        try:
+            product_link = li_tag.find('a', href=True)
+        except AttributeError:
+            self.searchId = None
+        else:
+            residue = re.sub(r'.+searchId\=','', product_link['href'])
+            self.searchId = re.sub(r'\&clickEventId\=.+', '', residue)
         
             
     def status_validation(self, url, func_name=None):
