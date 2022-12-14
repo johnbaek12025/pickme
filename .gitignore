@@ -1,3 +1,6 @@
+# Pycharm Editor
+.idea/
+
 cfg/
 etc/
 # Byte-compiled / optimized / DLL files
@@ -142,12 +145,12 @@ venv.bak/
 
 # mkdocs documentation
 /site
-log/
+
 # mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
-log/
+
 # Pyre type checker
 .pyre/
 
