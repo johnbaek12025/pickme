@@ -9,6 +9,7 @@ import sys
 import time
 import requests
 from mine.ip_util import switchIp2
+from mine.miser import Miser
 from mine.pickme import PickMe
 from mine.common import to_int, to_bool
 from mine.exceptions import ConfigError, IPChangeError, LogInsertError
@@ -28,7 +29,7 @@ class ControlManager(object):
         self.ten_hours_ago = self.now_datetime - timedelta(hours=10)        
         self.sleep_interval = None
         self.db_sleep_interval = None
-        self.ins_url = "https://api.wooriq.com/cp/searchlog_ins.php?keyword={ip_address}&ip=&productid={vendoritemid}"
+        self.ins_url = "https://api.wooriq.com/cp/searchlog_ins.php?keyword=&ip={ip_address}&productid={vendoritemid}"
         self.sel_url = "https://api.wooriq.com/cp/searchlog_sel.php?keyword=&ip={ip_address}&productid={ProductID}"
                 
     def check_config(self, config_dict):                
@@ -49,6 +50,7 @@ class ControlManager(object):
     def connect_to_db(self):
         logger.info("connect to databases")
         self.wooriq_db = DBManager()
+        self.wooriq_db.uri = self.data_database.get('db_name')
         self.wooriq_db.connect(**self.data_database)
 
     def disconnect_from_db(self):
@@ -62,7 +64,7 @@ class ControlManager(object):
     def get_swapped_ip(self, num, ProductID, ip_address=None):
         if ip_address == None or num % 5 == 0:
             try:
-                ip_address = switchIp2()        
+                ip_address = switchIp2()
             except IPChangeError:
                 print('테더링 확인 바랍니다.~~!!!')
                 time.sleep(self.sleep_interval)
@@ -76,27 +78,33 @@ class ControlManager(object):
             ip_address = self.get_swapped_ip(num, ProductID, None)
             return ip_address
     
-    def run(self):        
+    def run(self):
         logger.info("run_method")
-        self.disconnect_from_db()
-        ip_address = None        
-        try:            
-            while True:                      
+        ip_address = None
+        try:
+            while True:
                 self.connect_to_db()
                 for num, data_dict in enumerate (self.preprocess()):
                     print(data_dict)
-                    ip_address = self.get_swapped_ip(num, data_dict['vendoritemid'], ip_address=ip_address)
-                    logging.info(f"current ip_address: {ip_address}")      
+                    time.sleep(5)
+                    vendoritemid = re.sub(r'.+vendorItemId=', '', data_dict['url'])
+                    ip_address = self.get_swapped_ip(num, vendoritemid, ip_address=ip_address)
+                    logging.info(f"current ip_address: {ip_address}")
                     residue = re.search(r'[0-9]+\?itemId\=[0-9]+', data_dict['url'])
                     if not residue:
-                        continue                    
+                        continue
                     residue = residue.group(0)
-                    left = residue.split('?itemId=')                    
-                    pm = PickMe(item_id=left[1], product_id=left[0], vendoritemid=data_dict['vendoritemid'], keyword=data_dict['keyword'], header_list_path=self.header_list_path)                    
+                    left = residue.split('?itemId=')
+                    pm = PickMe(item_id=left[1], product_id=left[0], vendoritemid=vendoritemid, keyword=data_dict['keyword'], header_list_path=self.header_list_path)
                     if pm.main() == 'traffic fails':
                         logging.info(f'result of pm.main(): traffic fails')
                         continue                    
-                    self.postprocess({"id": data_dict['id'], "ip_address": ip_address, "vendoritemid": data_dict['vendoritemid']})
+                    time.sleep(5)
+                    m = Miser(product_url=data_dict['url'], item_id=left[1])
+                    if m.main() == 'Fail':
+                        logging.info(f"price couldn't find of {data_dict['url']}")
+                    self.postprocess({"id": data_dict['id'], "ip_address": ip_address, "vendoritemid": vendoritemid})
+                # time.sleep(self.sleep_interval)
                     # print()
         except KeyboardInterrupt as err:
             logger.info(f"key interruption")        
@@ -123,7 +131,12 @@ class ControlManager(object):
         and	  cp.p_url regexp 'https.+'
         and	  cp.mobile_yn in (0, 1)
         """
-        got_data = self.wooriq_db.get_all_rows(sql)
+        try:
+            got_data = self.wooriq_db.get_all_rows(sql)
+        except Exception as e:
+            logging.info(f"Error in preprocess of {e}")
+        finally:
+            self.disconnect_from_db()
         data_list = list()
         for d in got_data:
             data_list.append({"id": d[0], "url": d[1], 'vendoritemid': d[2], 'keyword': d[3]})        
@@ -143,7 +156,12 @@ class ControlManager(object):
                                   LastWorkdt = now() 
         where ID ={log['id']}
         """
-        self.wooriq_db.modify(sql, commit=True)        
+        try:
+            self.wooriq_db.modify(sql, commit=True)
+        except Exception as e:
+            logging.info(f"Error in postprocess of {e}")
+        finally:
+            self.wooriq_db.disconnect()        
         result = requests.get(url=self.ins_url.format(vendoritemid = log['vendoritemid'],  ip_address=log['ip_address']))
         if result.status_code == 200:
             logging.info(f"{log} insert succeed")

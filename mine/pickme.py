@@ -1,17 +1,13 @@
-from msilib.schema import Error
 import os
 import random
-import sys
 import time
 import requests
 from bs4 import BeautifulSoup as bf
-from lxml import etree
 import json
 import numpy
 import re
 import logging
 from urllib import parse
-from mine.ip_util import switchIp2
 from mine.common import create_dir, save_file
 logger = logging.getLogger(__name__)
 
@@ -35,10 +31,9 @@ class PickMe:
             data = f.read()
             data_list = json.loads(data)      
         headers = random.choice(data_list)
-        del headers['Num']
         self.session = requests.Session()
         logging.info(f"headers in file: {headers}")
-        self.session.headers = headers
+        self.session.headers.update(headers)        
         logging.info(f"current header: {self.session.headers}")
 
     def main(self):        
@@ -51,14 +46,14 @@ class PickMe:
         logging.info(f"searchID: {self.searchId}")        
         logging.info(f"targeturl: {self.target_url+self.searchId}")
         res = self.status_validation(self.target_url+self.searchId)
-        create_dir(f'{self.file_path}\etc')
+        create_dir(f'{self.file_path}\\etc')
         save_file(res, f'{self.file_path}\\etc\\{self.vendoritemid}_{self.keyword}.html')
+        self.session.close()
         return 'traffic success'
             
     def set_searchId(self):
         res = self.status_validation(self.search_url)
-        data = bf(res, 'html.parser')
-        save_file(res, f'{self.file_path}\\etc\\{self.vendoritemid}_{self.keyword}.html')        
+        data = bf(res, 'html.parser')        
         li_tag = data.find('li', {'class': "plp-default__item"})
         try:
             product_link = li_tag.find('a', href=True)
@@ -67,8 +62,7 @@ class PickMe:
         else:
             residue = re.sub(r'.+searchId\=','', product_link['href'])
             self.searchId = re.sub(r'\&clickEventId\=.+', '', residue)
-        
-            
+                    
     def status_validation(self, url, func_name=None):
         _name = "status_validation"
         time.sleep(random.choice(self.wtime))       

@@ -9,7 +9,7 @@ import queue
 import threading
 import random
 
-def get_myip(wait_seconds=180, proxy=None):
+async def get_myip(wait_seconds=180, proxy=None):
 
     st = time.time()
 
@@ -88,9 +88,9 @@ async def swap_ip():
     n = 1    
     while True:                
         print('아이피 변경 시도(' + str(n) + '회)')
-        lastIp = get_myip()        
+        lastIp = await get_myip()        
         change_process()        
-        currentIp = get_myip()                
+        currentIp = await get_myip()                
         print(f'before:{lastIp}, after:{currentIp}')
         n += 1
         if lastIp != currentIp and re.search('\d+\.\d+\.\d+\.\d+', currentIp):
