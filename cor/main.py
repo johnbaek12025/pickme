@@ -19,7 +19,7 @@ async def main(list_slot, headers_list):
 
         slot_chunks = list_chunk(slots, concurrency_max)# 리스트를  
         for slot_chunk in slot_chunks: #리스트를 for loop
-            # await swap_ip()        
+            await swap_ip()
             work_tasks = list()
             for slot in slot_chunk:
                 work_tasks.append(asyncio.create_task(work(keyword=slot.keyword, product_id=slot.product_id, item_id=slot.item_id, headers_list=headers_list)))
