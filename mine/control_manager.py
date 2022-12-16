@@ -119,8 +119,7 @@ class ControlManager(object):
     def preprocess(self):
         sql = f"""
         SELECT  cp.ID,
-                cp.p_url,
-                cp.ProductID,
+                cp.p_url,                
                 cp.Keyword
         FROM    wooriq.cp_keywordlist as cp,
                 wooriq.memberwork as mw
@@ -139,7 +138,7 @@ class ControlManager(object):
             self.disconnect_from_db()
         data_list = list()
         for d in got_data:
-            data_list.append({"id": d[0], "url": d[1], 'vendoritemid': d[2], 'keyword': d[3]})        
+            data_list.append({"id": d[0], "url": d[1], 'keyword': d[2]})        
         random.shuffle(data_list)
         return data_list
     
