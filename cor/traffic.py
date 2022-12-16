@@ -31,7 +31,6 @@ async def go_main_page(session):
     async with session.get(url) as res:
         # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)        
         print(f"cookies set validation: {res.cookies}")
-        pass
         
 async def search(session: CoupangClientSession, keyword):
     url = f"https://m.coupang.com/nm/search?q={quote(keyword)}"
@@ -50,12 +49,6 @@ async def search(session: CoupangClientSession, keyword):
                 residue = re.sub(r'.+searchId\=','', product_link['href'])
                 session.search_id = re.sub(r'\&clickEventId\=.+', '', residue)
                 print(f"cookies set validation after getting searchId: {res.cookies}")
-
-async def make_coro(future):#2
-    try:
-        return await future
-    except asyncio.CancelledError:
-        return await future
 
 async def click(session: CoupangClientSession, keyword, product_id, item_id):
     url = f"https://m.coupang.com/vm/products/{product_id}?itemId={item_id}&q={quote(keyword)}&searchId={session.search_id}"
@@ -78,3 +71,4 @@ async def work(keyword, product_id, item_id, headers_list):
     await go_main_page(session=ses)
     await search(session=ses, keyword=keyword)
     await click(session=ses, keyword=keyword, product_id=product_id, item_id=item_id)
+    await ses.close()
