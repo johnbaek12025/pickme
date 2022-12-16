@@ -70,7 +70,7 @@ async def click(session: CoupangClientSession, keyword, product_id, item_id):
 async def save_traffic_log(data, file_name):    
     with open(file_name, 'w', encoding='utf-8') as f:
         f.write(str(data))
-
+    
 
 async def work(keyword, product_id, item_id, headers_list):    
     ses = CoupangClientSession()    
