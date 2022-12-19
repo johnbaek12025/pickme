@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import json
 import re
 from typing import List
+from urllib.parse import parse_qs
 from cor.ip import swap_ip
 from db_manager import DBManager
 import random
@@ -9,34 +10,12 @@ from aiohttp import ClientSession
 
 class Slot:
 
-    def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id, ip_address):
+    def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id):
         self.server_pk = server_pk
         self.keyword = keyword
         self.product_id = product_id
         self.item_id = item_id
-        self.vendor_item_id = vendor_item_id
-    
-    # async def check_ip_address(self, ip_address):
-    #     session = ClientSession()
-    #     now_datetime = datetime.today()
-    #     ten_hours_ago = now_datetime - timedelta(hours=10)
-    #     url = f"https://api.wooriq.com/cp/searchlog_sel.php?keyword=&ip={ip_address}&productid={self.vendor_item_id}"
-    #     async with session.get(url) as res:
-    #         if res.status == 200:
-    #             try:
-    #                 info = await res.json()
-    #             except json.JSONDecodeError:
-    #                 return True
-    #             else:
-    #                 if not info:
-    #                     return True
-    #                 else:
-    #                     regdate = info[-1]['regdate']                    
-    #                     regist_time = datetime.strptime(regdate, '%Y-%m-%d %H:%M:%S')
-    #                     if ten_hours_ago > regist_time:
-    #                         return True
-    #                     return False
-    
+        self.vendor_item_id = vendor_item_id    
 
 
 async def fetch_slots(data_base_info) -> List[Slot]:
@@ -44,7 +23,8 @@ async def fetch_slots(data_base_info) -> List[Slot]:
     slots = get_data_set(data_base_info)
     object_list = []
     for s in slots:
-        vendoritemid = re.sub(r'.+vendorItemId=', '', s['url'])
+        residue = re.sub(r'.+vendorItemId=', '', s['url'])
+        vendoritemid = re.sub(r'[^0-9]+', '', residue)
         residue = re.search(r'[0-9]+\?itemId\=[0-9]+', s['url'])
         if not residue:
             continue

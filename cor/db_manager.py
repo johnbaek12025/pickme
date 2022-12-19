@@ -39,8 +39,8 @@ class DBManager(object):
         try:
             cur = self.conn.cursor()
             # logger.info("sql: %s" % sql)
-            cur.prepare(sql)
-            cur.executemany(None, rows)
+            # cur.prepare(sql)
+            cur.executemany(sql, rows)
             if commit:
                 self.conn.commit()
         except Exception as err:

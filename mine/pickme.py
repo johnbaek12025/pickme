@@ -47,7 +47,7 @@ class PickMe:
         logging.info(f"targeturl: {self.target_url+self.searchId}")
         res = self.status_validation(self.target_url+self.searchId)
         create_dir(f'{self.file_path}\\etc')
-        save_file(res, f'{self.file_path}\\etc\\{self.vendoritemid}_{self.keyword}.html')
+        save_file(res, f'{self.file_path}\\etc\\{self.vendoritemid}.html')
         self.session.close()
         return 'traffic success'
             

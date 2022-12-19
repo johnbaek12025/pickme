@@ -1,6 +1,9 @@
 # Pycharm Editor
 .idea/
 
+# log
+cor/traffic_log/
+
 cfg/
 etc/
 # Byte-compiled / optimized / DLL files
