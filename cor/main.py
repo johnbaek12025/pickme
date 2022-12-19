@@ -40,10 +40,11 @@ async def main(config_dict):
         slots = await fetch_slots(data_base_info)  #db에서 리스트를 가져옴        
         slot_chunks = list_chunk(slots, concurrency_max)# 리스트를
         for slot_chunk in slot_chunks: #리스트를 for loop
-            await swap_ip()
+            ip_address = await swap_ip()
             work_tasks = list()
-            for slot in slot_chunk:                
-                work_tasks.append(asyncio.create_task(work(keyword=slot.keyword, product_id=slot.product_id, item_id=slot.item_id, headers_list=header_list)))
+            for slot in slot_chunk:
+                print(ip_address)
+                work_tasks.append(asyncio.create_task(work(keyword=slot.keyword, product_id=slot.product_id, item_id=slot.item_id, vendor_item_id=slot.vendor_item_id,headers_list=header_list)))
             await asyncio.gather(*work_tasks) #coroutine 실행
 
 async def read_json(path):
