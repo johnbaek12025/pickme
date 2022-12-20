@@ -1,7 +1,12 @@
+from datetime import datetime, timedelta
+import json
 import re
 from typing import List
+from urllib.parse import parse_qs
+from cor.ip import swap_ip
 from db_manager import DBManager
 import random
+from aiohttp import ClientSession
 
 class Slot:
 
@@ -10,18 +15,16 @@ class Slot:
         self.keyword = keyword
         self.product_id = product_id
         self.item_id = item_id
-        self.vendor_item_id = vendor_item_id
+        self.vendor_item_id = vendor_item_id    
 
 
 async def fetch_slots(data_base_info) -> List[Slot]:
-    # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환
-    wooriq_db = DBManager()
-    wooriq_db.uri = data_base_info.get('db_name')
-    wooriq_db.connect(**data_base_info)
-    slots = preprocess(wooriq_db)
+    # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
+    slots = get_data_set(data_base_info)
     object_list = []
     for s in slots:
-        vendoritemid = re.sub(r'.+vendorItemId=', '', s['url'])
+        residue = re.sub(r'.+vendorItemId=', '', s['url'])
+        vendoritemid = re.sub(r'[^0-9]+', '', residue)
         residue = re.search(r'[0-9]+\?itemId\=[0-9]+', s['url'])
         if not residue:
             continue
@@ -31,7 +34,7 @@ async def fetch_slots(data_base_info) -> List[Slot]:
     return object_list
 
 
-def preprocess(wooriq_db):
+def get_data_set(data_base_info):
         sql = f"""
         SELECT  cp.ID,
                 cp.p_url,                
@@ -41,10 +44,12 @@ def preprocess(wooriq_db):
         where mw.UID = cp.UID
         and   mw.KeywordState in ('1', '2')
         and	  cp.Keyword is not NULL
-        and   cp.Keyword != ''
         and	  cp.p_url regexp 'https.+'
         and	  cp.mobile_yn in (0, 1)
         """
+        wooriq_db = DBManager()
+        wooriq_db.uri = data_base_info.get('db_name')
+        wooriq_db.connect(**data_base_info)
         try:
             got_data = wooriq_db.get_all_rows(sql)
         except Exception as e:

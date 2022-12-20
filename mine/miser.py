@@ -55,10 +55,11 @@ class Miser:
             
     def set_product_price(self):
         res = self.status_validation(self.product_url)
-        data = bf(res, 'html.parser')
-        div_tag = data.find('div', {"class": "prod-sale-price prod-major-price"})
+        data = bf(res, 'html.parser')        
+        first_div_tag = data.find('div', {"class": "prod-price-onetime"})        
         try:
-            price_tag = div_tag.find('span', {'class': 'total-price'})
+            second_div_tag = first_div_tag.find('div', {"class": "prod-coupon-price prod-major-price"})
+            price_tag = second_div_tag.find('span', {'class': 'total-price'})
         except AttributeError:
             self.product_price = None
         else:

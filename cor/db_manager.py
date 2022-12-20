@@ -17,7 +17,7 @@ class DBManager(object):
             # self.conn = pymysql.connect(host=db_host, user=db_user,port=int(db_port), password=db_pass, db=db_name, charset='utf8')
         except Exception as err:
             # logger.error(f"connection to {self.uri} failed : {err}")
-            raise
+            raise (err)
 
     def disconnect(self):
         if self.conn:
@@ -39,13 +39,13 @@ class DBManager(object):
         try:
             cur = self.conn.cursor()
             # logger.info("sql: %s" % sql)
-            cur.prepare(sql)
-            cur.executemany(None, rows)
+            # cur.prepare(sql)
+            cur.executemany(sql, rows)
             if commit:
                 self.conn.commit()
         except Exception as err:
             # logger.error(f"query {sql} failed: {err}")
-            raise
+            raise (f"query {sql} failed: {err}")
 
     def modify(self, sql, commit):
         try:
