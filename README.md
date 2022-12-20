@@ -42,3 +42,4 @@ self.connect_to_db()
 
 ## 4. 실행
 #### 1. pip install -r requirements.txt<br>2. exemple폴더의 exem.cfg파일을 작성<br>3. /bin에서 python mn.py --config=../cfg/config.cfg 실행
+#### 2. Coroutine 실행 /cor 폴더에서 python main.py --config=../cfg/config.cfg 실행

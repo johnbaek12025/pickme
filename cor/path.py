@@ -16,6 +16,3 @@ os.makedirs(_LOG_DIR, exist_ok=True)
 os.makedirs(PRODUCT_LOG_DIR, exist_ok=True)
 os.makedirs(SLOT_LOG_DIR, exist_ok=True)
 os.makedirs(DATE_LOG_DIR, exist_ok=True)
-
-
-

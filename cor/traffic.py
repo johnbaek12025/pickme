@@ -45,6 +45,7 @@ async def go_main_page(session):
         # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
         print(f"cookies set validation: {res.cookies}")
 
+
 async def search(session: CoupangClientSession, keyword):
     url = f"https://m.coupang.com/nm/search?q={quote(keyword)}"
     print(f"search url {url}")
