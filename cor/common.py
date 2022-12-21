@@ -121,6 +121,13 @@ class EnhancedRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandler)
                 or RotatingFileHandler.shouldRollover(self, record))
 
 
+async def make_coro(future):
+    #future instance to task instance
+    try:
+        return await future
+    except asyncio.CancelledError:
+        return await future
+
 def read_config_file(filename):
     import configobj
     try:

@@ -18,7 +18,6 @@ from cor.trafficlog import add_count_date_log, product_log, slot_log
 from cor.common import *
 file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 
-
 async def create_dir(path):
     if os.path.isdir(path):
         return
@@ -35,14 +34,14 @@ class CoupangClientSession(ClientSession):
 
 async def set_headers(session: CoupangClientSession, headers_list: list):
     headers = random.choice(headers_list)
-    session._default_headers.update(CIMultiDict(headers))    
+    session._default_headers.update(CIMultiDict(headers))
     print(f"headers validation: {session.headers}")
 
 
 async def go_main_page(session):
     url = 'https://m.coupang.com'
     async with session.get(url) as res:
-        # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
+        # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)        
         print(f"cookies set validation: {res.cookies}")
 
 
@@ -60,7 +59,7 @@ async def search(session: CoupangClientSession, keyword):
                 raise NotFoundProducts(f"notfoundproducts list in search: {url}")
             try:
                 product_links = [a['href'] for li_tag in li_tags if (a := li_tag.find('a', href=True)) is not None]
-            except AttributeError:
+            except AttributeError:                
                 raise NotParsedSearchId(f'href not found in a tag in search function {li_tags}')
             except Exception as e:
                 raise e
@@ -94,7 +93,7 @@ async def click(session: CoupangClientSession, keyword, product_id, item_id):
     async with session.get(url) as res:
         # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증
         if status:=res.status == 200:
-            info = await res.text()
+            await res.text()
             dir_path = f'{file_path}\\coro_test'
             await create_dir(dir_path)
             try:
@@ -123,12 +122,7 @@ def status_validation(url, session):
         else:
             raise ServerError('price_url: not 200')
 
-async def make_coro(future):
-    #future instance to task instance
-    try:
-        return await future
-    except asyncio.CancelledError:
-        return await future
+
 
 async def product_price_search(**kwargs):
     session = requests.Session()
@@ -181,12 +175,12 @@ async def work(slot, headers_list):
         print('클릭 완료')        
     except NotFoundProducts as e:
         print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    # except NotParsedSearchId as e:
-    #     print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    # except ServerError as e:
-    #     print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    # except FileNotFoundError as e:
-    #     print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")        
+    except NotParsedSearchId as e:
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except ServerError as e:
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except FileNotFoundError as e:
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")        
     finally:        
         await ses.close()        
         

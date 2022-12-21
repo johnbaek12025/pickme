@@ -1,12 +1,15 @@
+import asyncio
 from datetime import datetime, timedelta
 import json
 import re
 from typing import List
 from urllib.parse import parse_qs
+from cor.Errors import ServerError
 from cor.ip import swap_ip
 from db_manager import DBManager
 import random
 from aiohttp import ClientSession
+
 
 class Slot:
 
@@ -18,47 +21,31 @@ class Slot:
         self.vendor_item_id = vendor_item_id    
 
 
-async def fetch_slots(data_base_info) -> List[Slot]:
+async def fetch_slots() -> List[Slot]:
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
-    slots = get_data_set(data_base_info)
+    slots = await get_data_set()    
     object_list = []
-    for s in slots:
-        residue = re.sub(r'.+vendorItemId=', '', s['url'])
+    for s in slots:        
+        residue = re.sub(r'.+vendorItemId=', '', s['p_url'])
         vendoritemid = re.sub(r'[^0-9]+', '', residue)
-        residue = re.search(r'[0-9]+\?itemId\=[0-9]+', s['url'])
+        residue = re.search(r'[0-9]+\?itemId\=[0-9]+', s['p_url'])
         if not residue:
             continue
         residue = residue.group(0)
         left = residue.split('?itemId=')
-        object_list.append(Slot(server_pk=s['server_pk'], product_id=left[0], item_id=left[1], keyword=s['keyword'], vendor_item_id=vendoritemid))
+        object_list.append(Slot(server_pk=s['id'], product_id=left[0], item_id=left[1], keyword=s['Keyword'], vendor_item_id=vendoritemid))
     return object_list
 
 
-def get_data_set(data_base_info):
-        sql = f"""
-        SELECT  cp.ID,
-                cp.p_url,                
-                cp.Keyword
-        FROM    wooriq.cp_keywordlist as cp,
-                wooriq.memberwork as mw
-        where mw.UID = cp.UID
-        and   mw.KeywordState in ('1', '2')
-        and	  cp.Keyword is not NULL
-        and	  cp.p_url regexp 'https.+'
-        and	  cp.mobile_yn in (0, 1)
-        """
-        wooriq_db = DBManager()
-        wooriq_db.uri = data_base_info.get('db_name')
-        wooriq_db.connect(**data_base_info)
-        try:
-            got_data = wooriq_db.get_all_rows(sql)
-        except Exception as e:
-            return None
-        finally:
-            if wooriq_db:
-                wooriq_db.disconnect()            
-        data_list = list()
-        for d in got_data:
-            data_list.append({"server_pk": d[0], "url": d[1],  'keyword': d[2]})        
-        random.shuffle(data_list)
-        return data_list
+async def get_data_set():
+    session = ClientSession()
+    url = 'https://api.wooriq.com/cp/cp_keysel.php'
+    async with session.get(url) as res:
+        # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
+        if status := res.status == 200:
+            print(f"get api cp_list {status}")
+            result = await res.text()
+            session.close()
+            return json.loads(result)
+        else:
+            raise ServerError(f'cp_list api error')

@@ -20,11 +20,13 @@ def add_count_date_log(now, num):
     log_file_path = os.path.join(DATE_LOG_DIR, f'{today_date}.txt')
     if os.path.isfile(log_file_path):
         with open(log_file_path, 'r') as f:
-            today_count = json.load(f)
+            future = write_executor.submit(json.load, f)
+            today_count = future.result()
     else:
         today_count = 0
     today_count += num
-    thread_json_dump(log_file_path, today_count)
+    
+    write_executor.submit(thread_json_dump, log_file_path, today_count)
 
 
 def product_log(now, slot: Slot):
@@ -35,7 +37,8 @@ def product_log(now, slot: Slot):
 
     if os.path.isfile(product_log_file_path):
         with open(product_log_file_path, 'r') as f:
-            product_log = json.load(f)
+            future = write_executor.submit(json.load, f)
+            product_log = future.result()
     else:
         product_log = {'date_count': {today_date: 0}, 'details': {today_date: []}}
 
@@ -52,8 +55,7 @@ def product_log(now, slot: Slot):
         details = list()
     details.append(today_time)  # todo: 차후에는 쿠키값과 아이피값을 함께 추가
     product_log['details'][today_date] = details
-
-    thread_json_dump(product_log_file_path, product_log)
+    write_executor.submit(thread_json_dump, product_log_file_path, product_log)
 
 
 def slot_log(now, slot: Slot):
@@ -63,8 +65,8 @@ def slot_log(now, slot: Slot):
     slot_log_file_path = os.path.join(SLOT_LOG_DIR, f'{slot.server_pk}.txt')
 
     if os.path.isfile(slot_log_file_path):
-        with open(slot_log_file_path, 'r') as f:
-            slot_log = json.load(f)
+        with open(slot_log_file_path, 'r') as f:            
+            slot_log = json.load(f)            
     else:
         slot_log = {'date_count': {today_date: 0}, 'details': {today_date: []}}
 
@@ -81,5 +83,4 @@ def slot_log(now, slot: Slot):
         details = list()
     details.append(today_time)  # todo: 차후에는 쿠키값과 아이피값을 함께 추가
     slot_log['details'][today_date] = details
-
-    thread_json_dump(slot_log_file_path, slot_log)    
+    write_executor.submit(thread_json_dump, slot_log_file_path, slot_log)

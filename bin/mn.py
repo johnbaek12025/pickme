@@ -21,7 +21,6 @@ if __name__ == "__main__":
     common.add_basic_options(parser)
     (options, args) = parser.parse_args()
     config_dict = common.read_config_file(options.config_file)
-    config_dict["app_name"] = __appname__
     log_dict = config_dict.get("log", {})
     log_file_name = "pickme.log"    
     common.setup_logging(
