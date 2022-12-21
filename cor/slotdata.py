@@ -6,7 +6,6 @@ from typing import List
 from urllib.parse import parse_qs
 from cor.Errors import ServerError
 from cor.ip import swap_ip
-from db_manager import DBManager
 import random
 from aiohttp import ClientSession
 

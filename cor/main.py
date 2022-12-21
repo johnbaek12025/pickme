@@ -50,9 +50,11 @@ async def main(config_dict):
             if not ip_swap: # ip 변경여부 config
                 await swap_ip()
             work_tasks = list()
-            for slot in slot_chunk:
-                work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list)))                
-            await asyncio.gather(*work_tasks) #coroutine 실행            
+            semaphore = asyncio.Semaphore(5)
+            async with semaphore:
+                for slot in slot_chunk:
+                    work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list)))                
+                await asyncio.gather(*work_tasks) #coroutine 실행            
             
                 
 async def read_json(path):
