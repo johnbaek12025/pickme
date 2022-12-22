@@ -50,7 +50,7 @@ async def main(config_dict):
             if not ip_swap: # ip 변경여부 config
                 await swap_ip()
             work_tasks = list()
-            semaphore = asyncio.Semaphore(5)
+            semaphore = asyncio.Semaphore(concurrency_max)
             async with semaphore:
                 for slot in slot_chunk:
                     work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list)))                

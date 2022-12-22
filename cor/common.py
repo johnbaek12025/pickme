@@ -5,6 +5,7 @@ Library of components for the ThinkPoll SKM implementation.
 __version__ = '1.0.0'
 __pkgname__ = 'pseudo'
 
+import asyncio
 import locale
 import logging
 import os

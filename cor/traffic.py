@@ -11,10 +11,10 @@ from multidict import CIMultiDict
 from aiohttp import ClientSession
 from bs4 import BeautifulSoup as bf
 import requests
-
+import traceback
 from cor.Errors import NotFoundProducts, NotParsedSearchId, NotSearchedProductPrice, ServerError, WrongData
 
-from cor.trafficlog import add_count_date_log, product_log, slot_log
+from cor.trafficlog import add_count_date_log, error_log, product_log, slot_log
 from cor.common import *
 file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 
@@ -53,7 +53,7 @@ async def search(session: CoupangClientSession, keyword):
         # todo: search_id 파싱 후 session.search_id = 할당 및 검증(출력)
         if status := res.status == 200:
             info = await res.text()
-            data = bf(info, 'html.parser')            
+            data = bf(info, 'html.parser')
             li_tags = data.find_all('li', {'class': "plp-default__item"})
             if len(li_tags) == 0:
                 raise NotFoundProducts(f"notfoundproducts list in search: {url}")
@@ -174,29 +174,37 @@ async def work(slot, headers_list):
         await click(session=ses, keyword=slot.keyword, product_id=slot.product_id, item_id=slot.item_id)
         print('클릭 완료')        
     except NotFoundProducts as e:
+        await error_log(slot, e)
         print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
     except NotParsedSearchId as e:
+        await error_log(slot, e)
         print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
     except ServerError as e:
+        await error_log(slot, e)
         print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
     except FileNotFoundError as e:
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")        
+        await error_log(slot, e)
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except Exception as e:
+        tb_str = traceback.format_exc()        
+        await error_log(slot, tb_str)
+    
     finally:        
         await ses.close()        
         
   
 
     #product_price search
-    product_url = f'https://www.coupang.com/vp/products/{slot.product_id}?itemId={slot.item_id}&vendorItemId={slot.vendor_item_id}'
-    print(f"search product_price url: {product_url}")
-    try:
-        await product_price_search(product_url=product_url, product_id=slot.product_id, item_id=slot.item_id, vendor_item_id=slot.vendor_item_id)
-    except ServerError as e:
-        print(f"{slot.keyword}, searcy_product_price request error {e}")
-    except NotSearchedProductPrice as e:
-        print(f"{slot.keyword}, {e} ")
-    except Exception as e:
-        print(f"{slot.keyword}, {e}")
+    # product_url = f'https://www.coupang.com/vp/products/{slot.product_id}?itemId={slot.item_id}&vendorItemId={slot.vendor_item_id}'
+    # print(f"search product_price url: {product_url}")
+    # try:
+    #     await product_price_search(product_url=product_url, product_id=slot.product_id, item_id=slot.item_id, vendor_item_id=slot.vendor_item_id)
+    # except ServerError as e:
+    #     print(f"{slot.keyword}, searcy_product_price request error {e}")
+    # except NotSearchedProductPrice as e:
+    #     print(f"{slot.keyword}, {e} ")
+    # except Exception as e:
+    #     print(f"{slot.keyword}, {e}")
         
     # 기록
     _now = datetime.datetime.now()

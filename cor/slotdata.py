@@ -24,7 +24,7 @@ async def fetch_slots() -> List[Slot]:
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
     slots = await get_data_set()    
     object_list = []
-    for s in slots:        
+    for i, s in enumerate(slots):
         residue = re.sub(r'.+vendorItemId=', '', s['p_url'])
         vendoritemid = re.sub(r'[^0-9]+', '', residue)
         residue = re.search(r'[0-9]+\?itemId\=[0-9]+', s['p_url'])
@@ -32,6 +32,8 @@ async def fetch_slots() -> List[Slot]:
             continue
         residue = residue.group(0)
         left = residue.split('?itemId=')
+        if i % 5 == 0:
+            object_list.append(Slot(server_pk='35574', product_id='1319235770', item_id='2339357717', keyword='1구 인덕션', vendor_item_id='77959174230'))
         object_list.append(Slot(server_pk=s['id'], product_id=left[0], item_id=left[1], keyword=s['Keyword'], vendor_item_id=vendoritemid))
     return object_list
 

@@ -76,13 +76,6 @@ def change_process():
     time.sleep(0.5)
     os.system(f"{path}\\" + 'adb shell svc data enable')
 
-async def make_coro(future):#2
-    try:
-        return await future
-    except asyncio.CancelledError:
-        return await future
-
-
 async def swap_ip():
     ##안드로이드 버전 높은 경우
     n = 1    
