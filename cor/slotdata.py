@@ -22,7 +22,7 @@ class Slot:
 
 async def fetch_slots() -> List[Slot]:
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
-    slots = await get_data_set()    
+    slots = await get_data_set()
     object_list = []
     for i, s in enumerate(slots):
         residue = re.sub(r'.+vendorItemId=', '', s['p_url'])
@@ -46,7 +46,7 @@ async def get_data_set():
         if status := res.status == 200:
             print(f"get api cp_list {status}")
             result = await res.text()
-            session.close()
+            session.close()            
             return json.loads(result)
         else:
             raise ServerError(f'cp_list api error')
