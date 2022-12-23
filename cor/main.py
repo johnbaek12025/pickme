@@ -24,37 +24,40 @@ def list_chunk(lst, n):
     return [lst[i:i+n] for i in range(0, len(lst), n)]
 
 async def main(config_dict):
-    header_list_path = config_dict.get("header_list_path")
-    if not header_list_path:
+    HEADER_LIST_PATH = config_dict.get("header_list_path")
+    if not HEADER_LIST_PATH:
         raise ConfigError('config파일 확인 [header_list_path]')
-    etc = config_dict.get('etc')
-    if not etc:
+    ETC = config_dict.get('etc')
+    if not ETC:
         raise ConfigError('config파일 확인 [etc]')
-    concurrency_max = int(etc.get('concurrency_max'))
-    ip_swap = bool(etc.get('ip_swap', False))
-    header_list = await read_json(header_list_path.get('path'))
+    CONCURRENCY_MAX = int(ETC.get('concurrency_max'))
+    NO_IP_SWAP = to_bool(ETC.get('no_ip_swap', False))
+    header_list = await read_json(HEADER_LIST_PATH.get('path'))
+    print('CONFIG_SETTING')
+    print(f"CONCURRENCY_MAX: {CONCURRENCY_MAX}")
+    print(f"NO_IP_SWAP: {NO_IP_SWAP}")
+    print(f"HEADER_LIST = {header_list}")
     slots = await fetch_slots()  #db에서 리스트를 가져옴        
     now_datetime = datetime.datetime.today()
     one_hour_after = (now_datetime + timedelta(hours=1)).strftime('%H%M')
-    now_datetime = now_datetime.strftime('%H%M')
+    now_datetime = now_datetime.strftime('%H%M')    
     while True:        
         if now_datetime > one_hour_after:
             now_datetime = datetime.datetime.today()
             one_hour_after = (now_datetime + timedelta(hours=1)).strftime('%H%M')
             now_datetime = now_datetime.strftime('%H%M')
-            slots = await fetch_slots()  #db에서 리스트를 가져옴
-            
+            slots = await fetch_slots()  #db에서 리스트를 가져옴         
         slots = await fetch_slots()  #db에서 리스트를 가져옴
-        slot_chunks = list_chunk(slots, concurrency_max)# 리스트를
+        slot_chunks = list_chunk(slots, CONCURRENCY_MAX)# 리스트를        
         for slot_chunk in slot_chunks: #리스트를 for loop            
-            if not ip_swap: # ip 변경여부 config
+            if not NO_IP_SWAP: # ip 변경여부 config
                 await swap_ip()
             work_tasks = list()
-            semaphore = asyncio.Semaphore(concurrency_max)
+            semaphore = asyncio.Semaphore(CONCURRENCY_MAX)
             async with semaphore:
                 for slot in slot_chunk:
-                    work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list)))                
-                await asyncio.gather(*work_tasks) #coroutine 실행            
+                    work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list)))
+                await asyncio.gather(*work_tasks) #coroutine 실행 
                 
 async def read_json(path):
     with open(path, 'rt', encoding='utf-8-sig') as f:

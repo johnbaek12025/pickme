@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup as bf
 import requests
 import traceback
 from cor.Errors import NotFoundProducts, NotParsedSearchId, NotSearchedProductPrice, ServerError, WrongData
+from cor.slotdata import Slot
 
 from cor.trafficlog import add_count_date_log, error_log, product_log, slot_log
 from cor.common import *
@@ -38,70 +39,86 @@ async def set_headers(session: CoupangClientSession, headers_list: list):
     print(f"headers validation: {session.headers}")
 
 
+async def retry_get(session, retry_max, timeout, *args, **kwargs):
+    kwargs['timeout'] = timeout
+    for _ in range(retry_max):
+        async with session.get(*args, **kwargs) as res:
+            if status := res.status == 200:
+                try:
+                    result =  await res.text()
+                    print(f"{kwargs['url']}: {res.cookies}")
+                except TimeoutError:
+                    continue
+                else:                    
+                    return result
+            else:
+                status = status                
+                continue
+    raise ServerError(f"{status}")
+    
+
+
 async def go_main_page(session):
     url = 'https://m.coupang.com'
-    async with session.get(url) as res:
-        # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)        
-        print(f"cookies set validation: {res.cookies}")
-
-
-async def search(session: CoupangClientSession, keyword):
-    url = f"https://m.coupang.com/nm/search?q={quote(keyword)}"
-    print(f"search url {url}")
-    async with session.get(url) as res:
-        # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
-        # todo: search_id 파싱 후 session.search_id = 할당 및 검증(출력)
-        if status := res.status == 200:
-            info = await res.text()
-            data = bf(info, 'html.parser')
-            li_tags = data.find_all('li', {'class': "plp-default__item"})
-            if len(li_tags) == 0:
-                raise NotFoundProducts(f"notfoundproducts list in search: {url}")
-            try:
-                product_links = [a['href'] for li_tag in li_tags if (a := li_tag.find('a', href=True)) is not None]
-            except AttributeError:                
-                raise NotParsedSearchId(f'href not found in a tag in search function {li_tags}')
-            except Exception as e:
-                raise e
-            
-            product_link_href = product_links[0]
-            qs = parse_qs(product_link_href)
-            search_id = qs['searchId'][0]
-            session.search_id = search_id
-            print(f'session.search_id = {search_id}')
-
-        else:
-            raise ServerError (f'serarchid {url} packet status not 200 {status}')
-
-        # 검증
-        if _l := len(session.search_id) != 32:
-            print(f'search_id 자리수가 32가 아닙니다({_l})({session.search_id})')
-        if re_search := re.search('[^a-z0-9]', session.search_id):
-            print(f'파싱이 잘못되었거나 갑의 형식이 바뀌었을 수 있습니다. 소문자와 숫자가 아닌 문자({re_search.group()})가 삽입되어 있습니다.({search_id.search_id})')
-
-
-async def click(session: CoupangClientSession, keyword, product_id, item_id):
-    url = f"https://m.coupang.com/vm/products/{product_id}?itemId={item_id}&q={quote(keyword)}&searchId={session.search_id}"
     try:
-        int(item_id), int(product_id)
+        await retry_get(session, retry_max=3, timeout=40, url=url)
+    except ServerError as e:
+        raise ServerError(f"coudn't get cookies from main_page")
+            
+async def search(session: CoupangClientSession, slot: Slot):
+    url = f"https://m.coupang.com/nm/search?q={quote(slot.keyword)}"
+    print(f"search url {url}")
+    try:
+        info = await retry_get(session, retry_max=3, timeout=40, url=url)
+    except ServerError as e:
+        raise(f"{slot.keyword} couldn't find searchId")
+    # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
+    # todo: search_id 파싱 후 session.search_id = 할당 및 검증(출력)    
+    data = bf(info, 'html.parser')
+    li_tags = data.find_all('li', {'class': "plp-default__item"})
+    if len(li_tags) == 0:
+        raise NotFoundProducts(f"notfoundproducts list in search: {url}")
+    try:
+        product_links = [a['href'] for li_tag in li_tags if (a := li_tag.find('a', href=True)) is not None]
+    except AttributeError:                
+        raise NotParsedSearchId(f'href not found in a tag in search function {li_tags}')
+    except Exception as e:
+        raise e
+    product_link_href = product_links[0]
+    qs = parse_qs(product_link_href)
+    search_id = qs['searchId'][0]
+    session.search_id = search_id
+    print(f'session.search_id = {search_id}')
+    
+
+    # 검증
+    if _l := len(session.search_id) != 32:
+        print(f'search_id 자리수가 32가 아닙니다({_l})({session.search_id})')
+    if re_search := re.search('[^a-z0-9]', session.search_id):
+        print(f'파싱이 잘못되었거나 갑의 형식이 바뀌었을 수 있습니다. 소문자와 숫자가 아닌 문자({re_search.group()})가 삽입되어 있습니다.({search_id.search_id})')
+
+
+async def click(session: CoupangClientSession, slot: Slot):
+    url = f"https://m.coupang.com/vm/products/{slot.product_id}?itemId={slot.item_id}&q={quote(slot.keyword)}&searchId={session.search_id}"
+    try:
+        int(slot.item_id), int(slot.product_id)
     except ValueError as e:
         print('item_id 또는 product_id의 값에 이상이 있습니다.')
         raise WrongData('item_id 또는 product_id의 값에 이상이 있습니다.')
 
-    print(product_id, item_id, keyword, session.search_id)
+    print(slot.product_id, slot.item_id, slot.keyword, session.search_id)
     print('url:', url)
-    async with session.get(url) as res:
-        # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증
-        if status:=res.status == 200:
-            await res.text()
-            dir_path = f'{file_path}\\coro_test'
-            await create_dir(dir_path)
-            try:
-                await save_traffic_log(status, f"{dir_path}\\{item_id}.txt")
-            except FileNotFoundError as e:
-                raise (f'{keyword} {e} in click')
-        else:
-            raise ServerError(f'{product_id}_{item_id} not clicked {status}')
+    try:
+        res = await retry_get(session, retry_max=3, timeout=40, url=url)
+    except ServerError as e:
+        raise(f"{slot.keyword} couldn't click")
+    dir_path = f'{file_path}\\coro_test'
+    await create_dir(dir_path)    
+    try:
+        await save_traffic_log('성공', f"{dir_path}\\{slot.product_id}?itemId={slot.item_id}.txt")
+    except FileNotFoundError as e:
+        raise (f'{slot.keyword} {e} in click')
+    
 
 async def save_traffic_log(data, file_name):    
     with open(file_name, 'w', encoding='utf-8') as f:
@@ -123,18 +140,18 @@ def status_validation(url, session):
             raise ServerError('price_url: not 200')
 
 
-
 async def product_price_search(**kwargs):
     session = requests.Session()
-    headers = {            
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36",
-        }
+    headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36",
+                }
     session.headers.update(headers)
-    session.cookies.set(**{"domain": ".coupang.com", 
-                    "value": "51829479347949486589994", 
-                    "path": "/",                 
+    session.cookies.set(**{"domain": ".coupang.com",
+                    "value": "51829479347949486589994",
+                    "path": "/",
                     "name": "PCID",
-                    "rest": {"httpOnly": False, "sameSite": False},})    
+                    "rest": {"httpOnly": False, "sameSite": False},}
+                        )
     loop = asyncio.get_running_loop()    
     future = loop.run_in_executor(None, status_validation, kwargs['product_url'], session)
     task = asyncio.create_task(make_coro(future))
@@ -151,12 +168,9 @@ async def product_price_search(**kwargs):
         requests.Session()
         update_url = f"https://api.wooriq.com/cp/cp_price.php?purl={kwargs['product_url']}&price={product_price}"
         future = loop.run_in_executor(None, status_validation, update_url, session)
-        task = asyncio.create_task(make_coro(future))    
+        task = asyncio.create_task(make_coro(future))
         await task
         session.close()
-        
-        
-        
 
 async def work(slot, headers_list):
     try:
@@ -168,10 +182,10 @@ async def work(slot, headers_list):
         await go_main_page(session=ses)
         print('메인 페이지를 접속 완료')
         print(f'검색을 시도합니다({slot.keyword})')
-        await search(session=ses, keyword=slot.keyword)
+        await search(session=ses, slot=slot)
         print(f'검색 완료({slot.keyword})')
         print('클릭을 시도합니다')
-        await click(session=ses, keyword=slot.keyword, product_id=slot.product_id, item_id=slot.item_id)
+        await click(session=ses, slot=slot)
         print('클릭 완료')        
     except NotFoundProducts as e:
         await error_log(slot, e)
@@ -187,8 +201,7 @@ async def work(slot, headers_list):
         print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
     except Exception as e:
         tb_str = traceback.format_exc()        
-        await error_log(slot, tb_str)
-    
+        await error_log(slot, tb_str)    
     finally:        
         await ses.close()        
         
