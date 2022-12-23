@@ -38,7 +38,7 @@ async def main(config_dict):
     one_hour_after = (now_datetime + timedelta(hours=1)).strftime('%H%M')
     now_datetime = now_datetime.strftime('%H%M')
     while True:        
-        if now_datetime == one_hour_after:
+        if now_datetime > one_hour_after:
             now_datetime = datetime.datetime.today()
             one_hour_after = (now_datetime + timedelta(hours=1)).strftime('%H%M')
             now_datetime = now_datetime.strftime('%H%M')
@@ -55,7 +55,6 @@ async def main(config_dict):
                 for slot in slot_chunk:
                     work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list)))                
                 await asyncio.gather(*work_tasks) #coroutine 실행            
-            
                 
 async def read_json(path):
     with open(path, 'rt', encoding='utf-8-sig') as f:

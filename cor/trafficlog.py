@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
-from cor.common import make_coro, save_file
+from cor.common import *
 
 from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, PRODUCT_LOG_DIR, SLOT_LOG_DIR
 from cor.slotdata import Slot
@@ -87,18 +87,16 @@ def slot_log(now, slot: Slot):
     write_executor.submit(thread_json_dump, slot_log_file_path, slot_log)
 
 
-async def error_log(slot: Slot, error_msg):
+
+
+async def error_log(slot: Slot, error_msg):    
     _now = datetime.datetime.now()
-    error_log_file_path = os.path.join(ERROR_LOG_DIR, f'{slot.server_pk}_{slot.product_id}_{slot.item_id}.txt')
+    now_datetime = _now.strftime("%Y%m%d")
+    create_dir(f"{ERROR_LOG_DIR}\\{now_datetime}")
+    error_log_file_path = os.path.join(f"{ERROR_LOG_DIR}\\{now_datetime}", f'{slot.server_pk}_{slot.product_id}_{slot.item_id}.txt')
     if os.path.isfile(error_log_file_path):
-        loop = asyncio.get_running_loop()
         with open(error_log_file_path, 'r') as f:            
-            # error_log = json.load(f)
-            error_log = f.read()
-            # future = await loop.run_in_executor(None, , data)
-            # task = asyncio.create_task(make_coro(future))
-            # await task
-            # data = task.result()
+            error_log = f.read()            
     else:
         error_log = ""
     error_log += f"[{_now}] {slot.product_id}itemId={slot.item_id} {error_msg}\n"
