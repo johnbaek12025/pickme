@@ -115,7 +115,7 @@ async def click(session: CoupangClientSession, slot: Slot):
     dir_path = f'{file_path}\\coro_test'
     await create_dir(dir_path)    
     try:
-        await save_traffic_log('성공', f"{dir_path}\\{slot.product_id}?itemId={slot.item_id}.txt")
+        await save_traffic_log('성공', f"{dir_path}\\{slot.product_id}itemId={slot.item_id}.txt")
     except FileNotFoundError as e:
         raise (f'{slot.keyword} {e} in click')
     
