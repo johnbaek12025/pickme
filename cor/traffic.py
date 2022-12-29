@@ -8,7 +8,7 @@ import re
 import time
 from urllib.parse import quote, parse_qs
 from multidict import CIMultiDict
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from bs4 import BeautifulSoup as bf
 import requests
 import traceback
@@ -18,6 +18,8 @@ from cor.slotdata import Slot
 from cor.trafficlog import add_count_date_log, error_log, product_log, slot_log
 from cor.common import *
 file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
+timeout = ClientTimeout(total=40)
+retry_max = 3
 
 async def create_dir(path):
     if os.path.isdir(path):
@@ -60,8 +62,9 @@ async def retry_get(session, retry_max, timeout, *args, **kwargs):
 
 async def go_main_page(session):
     url = 'https://m.coupang.com'
+    
     try:
-        await retry_get(session, retry_max=3, timeout=40, url=url)
+        await retry_get(session, retry_max=retry_max, timeout=timeout, url=url)
     except ServerError as e:
         raise ServerError(f"coudn't get cookies from main_page")
             
@@ -69,7 +72,7 @@ async def search(session: CoupangClientSession, slot: Slot):
     url = f"https://m.coupang.com/nm/search?q={quote(slot.keyword)}"
     print(f"search url {url}")
     try:
-        info = await retry_get(session, retry_max=3, timeout=40, url=url)
+        info = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url)
     except ServerError as e:
         raise(f"{slot.keyword} couldn't find searchId")
     # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
@@ -109,7 +112,7 @@ async def click(session: CoupangClientSession, slot: Slot):
     print(slot.product_id, slot.item_id, slot.keyword, session.search_id)
     print('url:', url)
     try:
-        res = await retry_get(session, retry_max=3, timeout=40, url=url)
+        res = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url)
     except ServerError as e:
         raise(f"{slot.keyword} couldn't click")
     dir_path = f'{file_path}\\coro_test'
@@ -201,7 +204,7 @@ async def work(slot, headers_list):
         print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
     except Exception as e:
         tb_str = traceback.format_exc()        
-        await error_log(slot, tb_str)    
+        await error_log(slot, tb_str)
     finally:        
         await ses.close()        
         

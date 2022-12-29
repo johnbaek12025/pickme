@@ -95,9 +95,10 @@ async def error_log(slot: Slot, error_msg):
     create_dir(f"{ERROR_LOG_DIR}\\{now_datetime}")
     error_log_file_path = os.path.join(f"{ERROR_LOG_DIR}\\{now_datetime}", f'{slot.server_pk}_{slot.product_id}_{slot.item_id}.txt')
     if os.path.isfile(error_log_file_path):
-        with open(error_log_file_path, 'r') as f:            
-            error_log = f.read()            
+        with open(error_log_file_path, 'r', encoding='utf-8') as f:  
+            error_log = f.read()                    
     else:
         error_log = ""
     error_log += f"[{_now}] {slot.product_id}itemId={slot.item_id} {error_msg}\n"
     write_executor.submit(save_file, error_log, error_log_file_path)
+    
