@@ -37,7 +37,7 @@ async def main(config_dict):
     print(f"CONCURRENCY_MAX: {CONCURRENCY_MAX}")
     print(f"NO_IP_SWAP: {NO_IP_SWAP}")
     print(f"HEADER_LIST = {header_list}")
-    slots = await fetch_slots()  #db에서 리스트를 가져옴        
+    slots = await fetch_slots(CONCURRENCY_MAX)  #db에서 리스트를 가져옴        
     now_datetime = datetime.datetime.today()
     one_hour_after = (now_datetime + timedelta(hours=1)).strftime('%H%M')
     now_datetime = now_datetime.strftime('%H%M')    
@@ -46,9 +46,8 @@ async def main(config_dict):
             now_datetime = datetime.datetime.today()
             one_hour_after = (now_datetime + timedelta(hours=1)).strftime('%H%M')
             now_datetime = now_datetime.strftime('%H%M')
-            slots = await fetch_slots()  #db에서 리스트를 가져옴         
-        slots = await fetch_slots()  #db에서 리스트를 가져옴
-        slot_chunks = list_chunk(slots, CONCURRENCY_MAX)# 리스트를        
+            slots = await fetch_slots(CONCURRENCY_MAX)  #db에서 리스트를 가져옴
+        slot_chunks = list_chunk(slots, CONCURRENCY_MAX)# 리스트를
         for slot_chunk in slot_chunks: #리스트를 for loop            
             if not NO_IP_SWAP: # ip 변경여부 config
                 await swap_ip()

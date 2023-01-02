@@ -8,6 +8,7 @@ from cor.Errors import ServerError
 from cor.ip import swap_ip
 import random
 from aiohttp import ClientSession
+import asyncio
 
 
 class Slot:
@@ -20,9 +21,10 @@ class Slot:
         self.vendor_item_id = vendor_item_id    
 
 
-async def fetch_slots() -> List[Slot]:
+async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
-    slots = await get_data_set()
+    slots = await get_data_set(CONCURRENCY_MAX)
+    
     object_list = []
     for i, s in enumerate(slots):
         residue = re.sub(r'.+vendorItemId=', '', s['p_url'])
@@ -32,21 +34,23 @@ async def fetch_slots() -> List[Slot]:
             continue
         residue = residue.group(0)
         left = residue.split('?itemId=')
-        if i % 5 == 0:
-            object_list.append(Slot(server_pk='35574', product_id='1319235770', item_id='2339357717', keyword='1구 인덕션', vendor_item_id='77959174230'))
+        # if i % 5 == 0:
+            # object_list.append(Slot(server_pk='35574', product_id='1319235770', item_id='2339357717', keyword='1구 인덕션', vendor_item_id='77959174230'))
         object_list.append(Slot(server_pk=s['id'], product_id=left[0], item_id=left[1], keyword=s['Keyword'], vendor_item_id=vendoritemid))
+        random.shuffle(object_list)
     return object_list
 
 
-async def get_data_set():
-    session = ClientSession()
+async def get_data_set(CONCURRENCY_MAX):
+    session = ClientSession()    
     url = 'https://api.wooriq.com/cp/cp_keysel.php'
-    async with session.get(url) as res:
-        # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
-        if status := res.status == 200:
-            print(f"get api cp_list {status}")
-            result = await res.text()
-            session.close()            
-            return json.loads(result)
-        else:
-            raise ServerError(f'cp_list api error')
+    semaphore = asyncio.Semaphore(CONCURRENCY_MAX)
+    async with semaphore:
+        async with session.get(url) as res:
+            if status := res.status == 200:
+                print(f"get api cp_list {status}")
+                result = await res.text()
+                session.close()            
+                return json.loads(result)
+            else:
+                raise ServerError(f'cp_list api error')

@@ -101,6 +101,7 @@ async def search(session: CoupangClientSession, slot: Slot):
         print(f'파싱이 잘못되었거나 갑의 형식이 바뀌었을 수 있습니다. 소문자와 숫자가 아닌 문자({re_search.group()})가 삽입되어 있습니다.({search_id.search_id})')
 
 
+
 async def click(session: CoupangClientSession, slot: Slot):
     url = f"https://m.coupang.com/vm/products/{slot.product_id}?itemId={slot.item_id}&q={quote(slot.keyword)}&searchId={session.search_id}"
     try:
@@ -109,6 +110,13 @@ async def click(session: CoupangClientSession, slot: Slot):
         print('item_id 또는 product_id의 값에 이상이 있습니다.')
         raise WrongData('item_id 또는 product_id의 값에 이상이 있습니다.')
 
+    post_url = 'https://684d0d44.akstat.io/'
+    async with session.post(post_url) as res:
+        if res.status == 204:
+            pass
+        else:
+            raise ServerError('post_url was not worked')
+    
     print(slot.product_id, slot.item_id, slot.keyword, session.search_id)
     print('url:', url)
     try:
