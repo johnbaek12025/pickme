@@ -199,7 +199,7 @@ async def product_price_search(**kwargs):
 
 async def work(slot, headers_list, slot_max_count):
         
-        _now = datetime.datetime.now()
+        
     # if slot.count < slot_max_count:
         try:
             ses = CoupangClientSession()
@@ -232,7 +232,7 @@ async def work(slot, headers_list, slot_max_count):
             tb_str = traceback.format_exc()        
             await error_log(slot, tb_str)
         finally:        
-            await ses.close()
+            await ses.close()            
             await increment_count(slot)        
             
         #product_price search
@@ -247,16 +247,14 @@ async def work(slot, headers_list, slot_max_count):
         # except Exception as e:
         #     print(f"{slot.keyword}, {e}")
             
-        # 기록        
+        # 기록
+        _now = datetime.datetime.now()
         add_count_date_log(_now, 1)
         product_log(_now, slot)
         slot_log(_now, slot)
     # else:
-    #     async with slot.lock:
-    #         if slot.one_minute_from_now < _now:
-    #             slot.previous_date = _now
-    #             slot.count = 0
-            # if slot.previous_date != datetime.date.today():
-            #     slot.previous_date = datetime.date.today()
-            #     slot.count = 0
+        async with slot.lock:
+            if  today := datetime.date.today() != slot.previous_date:
+                slot.previous_date = today
+                slot.count = 0
     

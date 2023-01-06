@@ -22,8 +22,7 @@ class Slot:
         self.count = 0
         self.lock = asyncio.Lock()
         self.previous_date = datetime.date.today()
-        self.previous_min = datetime.datetime.now()
-        self.one_minute_from_now = self.previous_min + datetime.timedelta(minutes=10)
+        
         
         
 async def increment_count(obj):    
