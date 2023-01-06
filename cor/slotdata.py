@@ -1,5 +1,6 @@
 import asyncio
-from datetime import datetime, timedelta
+import datetime
+import datetime
 import json
 import re
 from typing import List
@@ -12,13 +13,22 @@ import asyncio
 
 
 class Slot:
-
     def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id):
         self.server_pk = server_pk
         self.keyword = keyword
         self.product_id = product_id
         self.item_id = item_id
-        self.vendor_item_id = vendor_item_id    
+        self.vendor_item_id = vendor_item_id
+        self.count = 0
+        self.lock = asyncio.Lock()
+        self.previous_date = datetime.date.today()
+        self.previous_min = datetime.datetime.now()
+        self.one_minute_from_now = self.previous_min + datetime.timedelta(minutes=10)
+        
+        
+async def increment_count(obj):    
+    async with obj.lock:        
+        obj.count += 1
 
 
 async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
@@ -50,7 +60,7 @@ async def get_data_set(CONCURRENCY_MAX):
             if status := res.status == 200:
                 print(f"get api cp_list {status}")
                 result = await res.text()
-                session.close()            
+                session.close()
                 return json.loads(result)
             else:
                 raise ServerError(f'cp_list api error')

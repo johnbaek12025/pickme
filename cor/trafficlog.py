@@ -25,7 +25,7 @@ def add_count_date_log(now, num):
             future = write_executor.submit(json.load, f)
             today_count = future.result()
     else:
-        today_count = 0
+        today_count = 0        
     today_count += num
     
     write_executor.submit(thread_json_dump, log_file_path, today_count)
@@ -45,7 +45,7 @@ def product_log(now, slot: Slot):
 
     try:
         c = product_log['date_count'][today_date]
-    except KeyError:
+    except KeyError:        
         c = 0
     c += 1
     product_log['date_count'][today_date] = c

@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup as bf
 import requests
 import traceback
 from cor.Errors import NotFoundProducts, NotParsedSearchId, NotSearchedProductPrice, ServerError, WrongData
-from cor.slotdata import Slot
+from cor.slotdata import Slot, increment_count
 
 from cor.trafficlog import add_count_date_log, error_log, product_log, slot_log
 from cor.common import *
@@ -129,7 +129,20 @@ async def click(session: CoupangClientSession, slot: Slot):
         await save_traffic_log('성공', f"{dir_path}\\{slot.product_id}itemId={slot.item_id}.txt")
     except FileNotFoundError as e:
         raise (f'{slot.keyword} {e} in click')
-    
+
+
+async def slot_update(slot):
+    session = ClientSession()
+    url = f"https://api.wooriq.com/cp/cp_keyup.php?id={slot.server_pk}"
+    async with session.get(url) as res:
+        if status := res.status == 200:
+            result = await res.text()
+            print(f"slot_update result: {result}")
+            session.close()
+        else:
+            session.close()
+            print('fail update of the slot')            
+
 
 async def save_traffic_log(data, file_name):    
     with open(file_name, 'w', encoding='utf-8') as f:
@@ -182,56 +195,68 @@ async def product_price_search(**kwargs):
         task = asyncio.create_task(make_coro(future))
         await task
         session.close()
-
-async def work(slot, headers_list):
-    try:
-        ses = CoupangClientSession()
-        print('헤더 세팅을 시작합니다')
-        await set_headers(session=ses, headers_list=headers_list)
-        print('헤더 세팅 완료')
-        print('메인 페이지를 접속합니다')
-        await go_main_page(session=ses)
-        print('메인 페이지를 접속 완료')
-        print(f'검색을 시도합니다({slot.keyword})')
-        await search(session=ses, slot=slot)
-        print(f'검색 완료({slot.keyword})')
-        print('클릭을 시도합니다')
-        await click(session=ses, slot=slot)
-        print('클릭 완료')        
-    except NotFoundProducts as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except NotParsedSearchId as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except ServerError as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except FileNotFoundError as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except Exception as e:
-        tb_str = traceback.format_exc()        
-        await error_log(slot, tb_str)
-    finally:        
-        await ses.close()        
         
-  
 
-    #product_price search
-    # product_url = f'https://www.coupang.com/vp/products/{slot.product_id}?itemId={slot.item_id}&vendorItemId={slot.vendor_item_id}'
-    # print(f"search product_price url: {product_url}")
-    # try:
-    #     await product_price_search(product_url=product_url, product_id=slot.product_id, item_id=slot.item_id, vendor_item_id=slot.vendor_item_id)
-    # except ServerError as e:
-    #     print(f"{slot.keyword}, searcy_product_price request error {e}")
-    # except NotSearchedProductPrice as e:
-    #     print(f"{slot.keyword}, {e} ")
-    # except Exception as e:
-    #     print(f"{slot.keyword}, {e}")
+async def work(slot, headers_list, slot_max_count):
         
-    # 기록
-    _now = datetime.datetime.now()
-    add_count_date_log(_now, 1)
-    product_log(_now, slot)
-    slot_log(_now, slot)
+        _now = datetime.datetime.now()
+    # if slot.count < slot_max_count:
+        try:
+            ses = CoupangClientSession()
+            print('헤더 세팅을 시작합니다')
+            await set_headers(session=ses, headers_list=headers_list)
+            print('헤더 세팅 완료')
+            print('메인 페이지를 접속합니다')
+            await go_main_page(session=ses)
+            print('메인 페이지를 접속 완료')
+            print(f'검색을 시도합니다({slot.keyword})')
+            await search(session=ses, slot=slot)
+            print(f'검색 완료({slot.keyword})')
+            print('클릭을 시도합니다')
+            await click(session=ses, slot=slot)
+            print('클릭 완료')
+            await slot_update(slot)
+        except NotFoundProducts as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except NotParsedSearchId as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except ServerError as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except FileNotFoundError as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except Exception as e:
+            tb_str = traceback.format_exc()        
+            await error_log(slot, tb_str)
+        finally:        
+            await ses.close()
+            await increment_count(slot)        
+            
+        #product_price search
+        # product_url = f'https://www.coupang.com/vp/products/{slot.product_id}?itemId={slot.item_id}&vendorItemId={slot.vendor_item_id}'
+        # print(f"search product_price url: {product_url}")
+        # try:
+        #     await product_price_search(product_url=product_url, product_id=slot.product_id, item_id=slot.item_id, vendor_item_id=slot.vendor_item_id)
+        # except ServerError as e:
+        #     print(f"{slot.keyword}, searcy_product_price request error {e}")
+        # except NotSearchedProductPrice as e:
+        #     print(f"{slot.keyword}, {e} ")
+        # except Exception as e:
+        #     print(f"{slot.keyword}, {e}")
+            
+        # 기록        
+        add_count_date_log(_now, 1)
+        product_log(_now, slot)
+        slot_log(_now, slot)
+    # else:
+    #     async with slot.lock:
+    #         if slot.one_minute_from_now < _now:
+    #             slot.previous_date = _now
+    #             slot.count = 0
+            # if slot.previous_date != datetime.date.today():
+            #     slot.previous_date = datetime.date.today()
+            #     slot.count = 0
+    
