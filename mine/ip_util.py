@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import sys
 import time
@@ -94,5 +95,6 @@ def switchIp2():
 
 
 if __name__ == "__main__":
+    print(datetime.now())
     ip = switchIp2()
     print(ip)

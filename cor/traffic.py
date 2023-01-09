@@ -110,12 +110,6 @@ async def click(session: CoupangClientSession, slot: Slot):
         print('item_id 또는 product_id의 값에 이상이 있습니다.')
         raise WrongData('item_id 또는 product_id의 값에 이상이 있습니다.')
 
-    post_url = 'https://684d0d44.akstat.io/'
-    async with session.post(post_url) as res:
-        if res.status == 204:
-            pass
-        else:
-            raise ServerError('post_url was not worked')
     
     print(slot.product_id, slot.item_id, slot.keyword, session.search_id)
     print('url:', url)
@@ -131,17 +125,16 @@ async def click(session: CoupangClientSession, slot: Slot):
         raise (f'{slot.keyword} {e} in click')
 
 
-async def slot_update(slot):
-    session = ClientSession()
+async def slot_update(slot):    
     url = f"https://api.wooriq.com/cp/cp_keyup.php?id={slot.server_pk}"
-    async with session.get(url) as res:
-        if status := res.status == 200:
-            result = await res.text()
-            print(f"slot_update result: {result}")
-            session.close()
-        else:
-            session.close()
-            print('fail update of the slot')            
+    async with ClientSession() as session:
+        async with session.get(url) as res:
+            if status := res.status == 200:
+                result = await res.text()
+                print(f"slot_update result: {result}")            
+            else:            
+                print('fail update of the slot')            
+    
 
 
 async def save_traffic_log(data, file_name):    
@@ -187,9 +180,7 @@ async def product_price_search(**kwargs):
         product_price = [price for p in price_tag if (price := re.sub(r"[^0-9]+", "", p.text))][-1]    
     except IndexError:
         raise ('There is no price information')
-    else:
-        session.close()
-        requests.Session()
+    else:        
         update_url = f"https://api.wooriq.com/cp/cp_price.php?purl={kwargs['product_url']}&price={product_price}"
         future = loop.run_in_executor(None, status_validation, update_url, session)
         task = asyncio.create_task(make_coro(future))
@@ -214,8 +205,7 @@ async def work(slot, headers_list, slot_max_count):
             print(f'검색 완료({slot.keyword})')
             print('클릭을 시도합니다')
             await click(session=ses, slot=slot)
-            print('클릭 완료')
-            await slot_update(slot)
+            print('클릭 완료')            
         except NotFoundProducts as e:
             await error_log(slot, e)
             print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
@@ -234,6 +224,7 @@ async def work(slot, headers_list, slot_max_count):
         finally:        
             await ses.close()            
             await increment_count(slot)        
+            await slot_update(slot)
             
         #product_price search
         # product_url = f'https://www.coupang.com/vp/products/{slot.product_id}?itemId={slot.item_id}&vendorItemId={slot.vendor_item_id}'
@@ -257,4 +248,3 @@ async def work(slot, headers_list, slot_max_count):
             if  today := datetime.date.today() != slot.previous_date:
                 slot.previous_date = today
                 slot.count = 0
-    
