@@ -51,15 +51,15 @@ async def main(config_dict):
             slots = await fetch_slots(CONCURRENCY_MAX)  #db에서 리스트를 가져옴
             print('-----------------------new slots brought-----------------------')
         slot_chunks = list_chunk(slots, CONCURRENCY_MAX)# 리스트를
-        for slot_chunk in slot_chunks: #리스트를 for loop            
-            if not NO_IP_SWAP: # ip 변경여부 config
-                await swap_ip()
-            work_tasks = list()
-            semaphore = asyncio.Semaphore(CONCURRENCY_MAX)            
-            async with semaphore:
-                for slot in slot_chunk:
-                    work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list, slot_max_count=SLOT_MAX_COUNT)))
-                await asyncio.gather(*work_tasks) #coroutine 실행        
+        # for slot_chunk in slot_chunks: #리스트를 for loop            
+        #     if not NO_IP_SWAP: # ip 변경여부 config
+        #         await swap_ip()
+        #     work_tasks = list()
+        #     semaphore = asyncio.Semaphore(CONCURRENCY_MAX)            
+        #     async with semaphore:
+        #         for slot in slot_chunk:
+        #             work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list, slot_max_count=SLOT_MAX_COUNT)))
+        #         await asyncio.gather(*work_tasks) #coroutine 실행        
         
         
             

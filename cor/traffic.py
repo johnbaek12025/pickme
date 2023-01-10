@@ -44,6 +44,7 @@ async def set_headers(session: CoupangClientSession, headers_list: list):
 async def retry_get(session, retry_max, timeout, *args, **kwargs):
     kwargs['timeout'] = timeout
     for _ in range(retry_max):
+        asyncio.sleet(1)
         async with session.get(*args, **kwargs) as res:
             if status := res.status == 200:
                 try:
@@ -51,6 +52,8 @@ async def retry_get(session, retry_max, timeout, *args, **kwargs):
                     print(f"{kwargs['url']}: {res.cookies}")
                 except TimeoutError:
                     continue
+                except Exception as e:
+                    print(e)
                 else:                    
                     return result
             else:
