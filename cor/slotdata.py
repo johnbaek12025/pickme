@@ -42,8 +42,7 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
             continue
         residue = residue.group(0)
         left = residue.split('?itemId=')
-        # if i % 5 == 0:
-            # object_list.append(Slot(server_pk='35574', product_id='1319235770', item_id='2339357717', keyword='1구 인덕션', vendor_item_id='77959174230'))
+        
         object_list.append(Slot(server_pk=s['id'], product_id=left[0], item_id=left[1], keyword=s['Keyword'], vendor_item_id=vendoritemid))
         random.shuffle(object_list)
     return object_list
@@ -58,7 +57,6 @@ async def get_data_set(CONCURRENCY_MAX):
                 if status := res.status == 200:
                     print(f"get api cp_list {status}")
                     result = await res.text()
-                    session.close()
                     return json.loads(result)
                 else:
                     raise ServerError(f'cp_list api error')

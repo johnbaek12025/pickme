@@ -44,7 +44,7 @@ async def set_headers(session: CoupangClientSession, headers_list: list):
 async def retry_get(session, retry_max, timeout, *args, **kwargs):
     kwargs['timeout'] = timeout
     for _ in range(retry_max):
-        asyncio.sleet(1)
+        await asyncio.sleet(0.5)
         async with session.get(*args, **kwargs) as res:
             if status := res.status == 200:
                 try:
@@ -53,7 +53,8 @@ async def retry_get(session, retry_max, timeout, *args, **kwargs):
                 except TimeoutError:
                     continue
                 except Exception as e:
-                    print(e)
+                    tb_str = traceback.format_exc()        
+                    await error_log(slot, tb_str)
                 else:                    
                     return result
             else:
@@ -128,7 +129,8 @@ async def click(session: CoupangClientSession, slot: Slot):
         raise (f'{slot.keyword} {e} in click')
 
 
-async def slot_update(slot):    
+async def slot_update(slot):
+    await asyncio.sleep(0.5)
     url = f"https://api.wooriq.com/cp/cp_keyup.php?id={slot.server_pk}"
     async with ClientSession() as session:
         async with session.get(url) as res:
