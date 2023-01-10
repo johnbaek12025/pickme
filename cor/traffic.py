@@ -15,7 +15,7 @@ import traceback
 from cor.Errors import NotFoundProducts, NotParsedSearchId, NotSearchedProductPrice, ServerError, WrongData
 from cor.slotdata import Slot, increment_count
 
-from cor.trafficlog import add_count_date_log, error_log, product_log, slot_log
+from cor.trafficlog import add_count_date_log, error_log, ip_product_log, product_log, slot_log
 from cor.common import *
 file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 timeout = ClientTimeout(total=40)
@@ -52,9 +52,7 @@ async def retry_get(session, retry_max, timeout, *args, **kwargs):
                     print(f"{kwargs['url']}: {res.cookies}")
                 except TimeoutError:
                     continue
-                except Exception as e:
-                    tb_str = traceback.format_exc()        
-                    await error_log(slot, tb_str)
+                
                 else:                    
                     return result
             else:
@@ -193,7 +191,7 @@ async def product_price_search(**kwargs):
         session.close()
         
 
-async def work(slot, headers_list, slot_max_count):
+async def work(slot, headers_list, slot_max_count, current_ip=None):
         
         
     # if slot.count < slot_max_count:
@@ -244,10 +242,13 @@ async def work(slot, headers_list, slot_max_count):
         #     print(f"{slot.keyword}, {e}")
             
         # 기록
+        if current_ip:
+            await ip_product_log(slot, current_ip)
         _now = datetime.datetime.now()
         add_count_date_log(_now, 1)
         product_log(_now, slot)
         slot_log(_now, slot)
+        
     # else:
         async with slot.lock:
             if  today := datetime.date.today() != slot.previous_date:
