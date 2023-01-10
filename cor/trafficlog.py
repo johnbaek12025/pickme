@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from cor.common import *
 
-from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, PRODUCT_LOG_DIR, SLOT_LOG_DIR, IP_PRODUCT_DIR
+from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, PRODUCT_LOG_DIR, SLOT_LOG_DIR, PRODUCT_IP_DIR
 from cor.slotdata import Slot
 
 write_executor = ThreadPoolExecutor(max_workers=1)
@@ -16,15 +16,15 @@ def thread_json_dump(file_path, content):
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(content, f, ensure_ascii=False)
 
-async def ip_product_log(slot, current_ip):
-    log_file_path = os.path.join(IP_PRODUCT_DIR, f'{current_ip}.txt')
+async def product_ip_log(slot, current_ip):
+    log_file_path = os.path.join(PRODUCT_IP_DIR, f'{slot.product_id}.txt')
     if os.path.isfile(log_file_path):
          with open(log_file_path, 'r', encoding='utf-8') as f:  
-            products_list = f.read()                    
+            ip_list = f.read()                    
     else:
-        products_list = ""
-    products_list += f"{slot.product_id}, "
-    write_executor.submit(save_file, products_list, log_file_path)
+        ip_list = ""
+    ip_list += f"{current_ip}, "
+    write_executor.submit(save_file, ip_list, log_file_path)
         
 def add_count_date_log(now, num):
     today_date = now.strftime('%Y%m%d')

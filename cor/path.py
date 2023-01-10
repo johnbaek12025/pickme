@@ -14,7 +14,7 @@ PRODUCT_LOG_DIR = os.path.join(_LOG_DIR, 'products')
 SLOT_LOG_DIR = os.path.join(_LOG_DIR, 'slots')
 DATE_LOG_DIR = os.path.join(_LOG_DIR, 'date')
 ERROR_LOG_DIR = os.path.join(_LOG_DIR, 'error')
-IP_PRODUCT_DIR = os.path.join(_LOG_DIR, 'ip_product')
+PRODUCT_IP_DIR = os.path.join(_LOG_DIR, 'product_ip')
 
 
 os.makedirs(_LOG_DIR, exist_ok=True)
@@ -22,4 +22,5 @@ os.makedirs(PRODUCT_LOG_DIR, exist_ok=True)
 os.makedirs(SLOT_LOG_DIR, exist_ok=True)
 os.makedirs(DATE_LOG_DIR, exist_ok=True)
 os.makedirs(ERROR_LOG_DIR, exist_ok=True)
-os.makedirs(IP_PRODUCT_DIR, exist_ok=True)
+os.makedirs(PRODUCT_IP_DIR, exist_ok=True)
+
