@@ -41,8 +41,7 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
         if not residue:
             continue
         residue = residue.group(0)
-        left = residue.split('?itemId=')
-        
+        left = residue.split('?itemId=')        
         object_list.append(Slot(server_pk=s['id'], product_id=left[0], item_id=left[1], keyword=s['Keyword'], vendor_item_id=vendoritemid))
         random.shuffle(object_list)
     return object_list

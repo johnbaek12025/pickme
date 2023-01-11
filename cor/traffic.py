@@ -44,7 +44,7 @@ async def set_headers(session: CoupangClientSession, headers_list: list):
 async def retry_get(session, retry_max, timeout, *args, **kwargs):
     kwargs['timeout'] = timeout
     for _ in range(retry_max):
-        await asyncio.sleet(0.5)
+        await asyncio.sleep(0.5)
         async with session.get(*args, **kwargs) as res:
             if status := res.status == 200:
                 try:
@@ -105,26 +105,42 @@ async def search(session: CoupangClientSession, slot: Slot):
 
 
 async def click(session: CoupangClientSession, slot: Slot):
-    url = f"https://m.coupang.com/vm/products/{slot.product_id}?itemId={slot.item_id}&q={quote(slot.keyword)}&searchId={session.search_id}"
+    url1 = f"https://m.coupang.com/vm/products/{slot.product_id}?itemId={slot.item_id}&q={quote(slot.keyword)}&searchId={session.search_id}"
     try:
-        int(slot.item_id), int(slot.product_id)
+        int(slot.item_id), int(slot.product_id), int(slot.vendor_item_id)
     except ValueError as e:
-        print('item_id 또는 product_id의 값에 이상이 있습니다.')
-        raise WrongData('item_id 또는 product_id의 값에 이상이 있습니다.')
+        print('item_id 또는 product_id, vendor_item_id의 값에 이상이 있습니다.')
+        raise WrongData('item_id 또는 product_id, vendor_item_id의 값에 이상이 있습니다.')
 
     
     print(slot.product_id, slot.item_id, slot.keyword, session.search_id)
-    print('url:', url)
+    print('url:', url1)
     try:
-        res = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url)
+        info = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url1)
     except ServerError as e:
         raise(f"{slot.keyword} couldn't click")
-    dir_path = f'{file_path}\\coro_test'
-    await create_dir(dir_path)    
-    try:
-        await save_traffic_log('성공', f"{dir_path}\\{slot.product_id}itemId={slot.item_id}.txt")
-    except FileNotFoundError as e:
-        raise (f'{slot.keyword} {e} in click')
+    
+    data = bf(info, 'html.parser')    
+    children = data.findChild('div', {"id": "wrap"})
+    child_bool = children.find('div', {'data-fashion-flag': "false"})
+    if not child_bool:
+        child_bool = children.find('div', {'data-fashion-flag': "true"})
+    fashion = child_bool['data-fashion-flag']
+    if isinstance(to_bool(fashion), bool):
+        url2 = f"https://m.coupang.com/vm/products/{slot.product_id}/brand-sdp/items/{slot.item_id}/?vendorItemId={slot.vendor_item_id}&style=MOBILE_BROWSER&isFashion={fashion}"
+        try:
+            info = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url2)
+        except ServerError as e:
+            raise(f"{slot.keyword} couldn't click")
+        dir_path = f'{file_path}\\coro_test'
+        await create_dir(dir_path)    
+        try:
+            await save_traffic_log('success', f"{dir_path}\\{slot.product_id}itemId={slot.item_id}.txt")
+        except FileNotFoundError as e:
+            raise (f'{slot.keyword} {e} in click')
+        
+    else:
+        raise ValueError('fashion을 가져오지 못 함')
 
 
 async def slot_update(slot):
@@ -136,13 +152,13 @@ async def slot_update(slot):
                 result = await res.text()
                 print(f"slot_update result: {result}")            
             else:            
-                print('fail update of the slot')            
+                print('fail update of the slot')
     
-
 
 async def save_traffic_log(data, file_name):    
     with open(file_name, 'w', encoding='utf-8') as f:
         f.write(str(data))
+
 
 # product_price search
 def status_validation(url, session):        
@@ -219,6 +235,9 @@ async def work(slot, headers_list, slot_max_count, current_ip=None):
             await error_log(slot, e)
             print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
         except FileNotFoundError as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except ValueError as e:
             await error_log(slot, e)
             print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
         except Exception as e:

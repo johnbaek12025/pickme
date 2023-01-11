@@ -17,14 +17,24 @@ def thread_json_dump(file_path, content):
         json.dump(content, f, ensure_ascii=False)
 
 async def product_ip_log(slot, current_ip):
-    log_file_path = os.path.join(PRODUCT_IP_DIR, f'{slot.product_id}.txt')
-    if os.path.isfile(log_file_path):
-         with open(log_file_path, 'r', encoding='utf-8') as f:  
-            ip_list = f.read()                    
+    _now = datetime.datetime.now()
+    now_datetime = _now.strftime("%Y%m%d")
+    today_time = _now.strftime('%H%M')
+    create_dir(f"{PRODUCT_IP_DIR}\\{now_datetime}")
+    ip_log_file_path = os.path.join(f"{PRODUCT_IP_DIR}\\{now_datetime}", f'{slot.vendor_item_id}.txt')
+    if os.path.isfile(ip_log_file_path):
+         with open(ip_log_file_path, 'r') as f:
+            ip_list = json.load(f)
     else:
-        ip_list = ""
-    ip_list += f"{current_ip}, "
-    write_executor.submit(save_file, ip_list, log_file_path)
+        ip_list = {current_ip: [today_time]}
+        
+    try:
+        ip_list[current_ip].append(today_time)    
+    except KeyError:        
+        ip_list[current_ip] = []
+        ip_list[current_ip].append(today_time)
+    write_executor.submit(thread_json_dump, ip_log_file_path, ip_list)
+    
         
 def add_count_date_log(now, num):
     today_date = now.strftime('%Y%m%d')
