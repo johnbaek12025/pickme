@@ -28,10 +28,9 @@ async def product_ip_log(slot, current_ip):
     else:
         ip_list = {current_ip: [today_time]}        
     try:
-        ip_list[current_ip].append(today_time)    
+        ip_list[current_ip]
     except KeyError:        
-        ip_list[current_ip] = []
-        ip_list[current_ip].append(today_time)
+        ip_list[current_ip] = [today_time]
     write_executor.submit(thread_json_dump, ip_log_file_path, ip_list)
     
         

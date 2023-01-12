@@ -34,6 +34,7 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
     slots = await get_data_set(CONCURRENCY_MAX)
     print(f"갯수 {len(slots)}")
     object_list = []
+    random.shuffle(slots)
     for i, s in enumerate(slots):
         residue = re.sub(r'.+vendorItemId=', '', s['p_url'])
         vendoritemid = re.sub(r'[^0-9]+', '', residue)
@@ -41,9 +42,8 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
         if not residue:
             continue
         residue = residue.group(0)
-        left = residue.split('?itemId=')        
-        object_list.append(Slot(server_pk=s['id'], product_id=left[0], item_id=left[1], keyword=s['Keyword'], vendor_item_id=vendoritemid))
-        random.shuffle(object_list)
+        left = residue.split('?itemId=')
+        object_list.append(Slot(server_pk=s['id'], product_id=left[0], item_id=left[1], keyword=s['Keyword'], vendor_item_id=vendoritemid))        
     return object_list
 
 

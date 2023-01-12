@@ -224,7 +224,9 @@ async def work(slot, headers_list, slot_max_count, current_ip=None):
             print(f'검색 완료({slot.keyword})')
             print('클릭을 시도합니다')
             await click(session=ses, slot=slot)
-            print('클릭 완료')            
+            print('클릭 완료')
+            await increment_count(slot)        
+            await slot_update(slot)            
         except NotFoundProducts as e:
             await error_log(slot, e)
             print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
@@ -245,8 +247,6 @@ async def work(slot, headers_list, slot_max_count, current_ip=None):
             await error_log(slot, tb_str)
         finally:        
             await ses.close()            
-            await increment_count(slot)        
-            await slot_update(slot)
             
         #product_price search
         # product_url = f'https://www.coupang.com/vp/products/{slot.product_id}?itemId={slot.item_id}&vendorItemId={slot.vendor_item_id}'
