@@ -4,7 +4,7 @@ import datetime
 import json
 import re
 from typing import List
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 from cor.Errors import ServerError
 from cor.ip import swap_ip
 import random
@@ -29,21 +29,27 @@ async def increment_count(obj):
         obj.count += 1
 
 
-async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
+async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:    
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
+    def get_param_dict(url):
+        params = parse_qs(urlsplit(url).query)
+        return {k:v[0] if v else None for k,v in params.items()}
     slots = await get_data_set(CONCURRENCY_MAX)
     print(f"갯수 {len(slots)}")
     object_list = []
     random.shuffle(slots)
     for i, s in enumerate(slots):
-        residue = re.sub(r'.+vendorItemId=', '', s['p_url'])
-        vendoritemid = re.sub(r'[^0-9]+', '', residue)
-        residue = re.search(r'[0-9]+\?itemId\=[0-9]+', s['p_url'])
-        if not residue:
-            continue
-        residue = residue.group(0)
-        left = residue.split('?itemId=')
-        object_list.append(Slot(server_pk=s['id'], product_id=left[0], item_id=left[1], keyword=s['Keyword'], vendor_item_id=vendoritemid))        
+        residue = re.sub(r'.+products/', '', s['p_url'])        
+        res = get_param_dict(s['p_url'])
+        try:
+            product_id = re.sub(f'\?itemId={res["itemId"]}&vendorItemId={res["vendorItemId"]}.*', '', residue)
+        except KeyError:
+            product_id = re.sub(f'\?vendorItemId={res["vendorItemId"]}.*', '', residue)
+        res['productId'] = product_id
+        try:
+            object_list.append(Slot(server_pk=s['id'], product_id=res['productId'], item_id=res["itemId"], keyword=s['Keyword'], vendor_item_id=res["vendorItemId"]))
+        except KeyError:
+            object_list.append(Slot(server_pk=s['id'], product_id=res['productId'], item_id=res["vendorItemId"], keyword=s['Keyword'], vendor_item_id=res["vendorItemId"]))
     return object_list
 
 
