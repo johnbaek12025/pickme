@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from cor.common import *
 
-from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, PRODUCT_LOG_DIR, SLOT_LOG_DIR, PRODUCT_IP_DIR
+from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, SLOT_LOG_DIR, PRODUCT_IP_DIR, VENDOR_ITEM_LOG_DIR
 from cor.slotdata import Slot
 
 write_executor = ThreadPoolExecutor(max_workers=1)
@@ -21,13 +21,12 @@ async def product_ip_log(slot, current_ip):
     now_datetime = _now.strftime("%Y%m%d")
     today_time = _now.strftime('%H%M')
     create_dir(f"{PRODUCT_IP_DIR}\\{now_datetime}")
-    ip_log_file_path = os.path.join(f"{PRODUCT_IP_DIR}\\{now_datetime}", f'{slot.vendor_item_id}.txt')
+    ip_log_file_path = os.path.join(f"{PRODUCT_IP_DIR}\\{now_datetime}", f'{slot.vendor_item_id}.json')
     if os.path.isfile(ip_log_file_path):
          with open(ip_log_file_path, 'r') as f:
             ip_list = json.load(f)
     else:
-        ip_list = {current_ip: [today_time]}
-        
+        ip_list = {current_ip: [today_time]}        
     try:
         ip_list[current_ip].append(today_time)    
     except KeyError:        
@@ -38,26 +37,25 @@ async def product_ip_log(slot, current_ip):
         
 def add_count_date_log(now, num):
     today_date = now.strftime('%Y%m%d')
-    log_file_path = os.path.join(DATE_LOG_DIR, f'{today_date}.txt')
+    log_file_path = os.path.join(DATE_LOG_DIR, f'{today_date}.json')
     if os.path.isfile(log_file_path):
         with open(log_file_path, 'r') as f:
             future = write_executor.submit(json.load, f)
             today_count = future.result()
     else:
         today_count = 0        
-    today_count += num
-    
+    today_count += num    
     write_executor.submit(thread_json_dump, log_file_path, today_count)
 
 
-def product_log(now, slot: Slot):
+def vendor_item_log(now, slot: Slot):
     today_date = now.strftime('%Y%m%d')
     today_time = now.strftime('%H%M')
 
-    product_log_file_path = os.path.join(PRODUCT_LOG_DIR, f'{slot.product_id}.txt')
+    vendor_item_log_file_path = os.path.join(VENDOR_ITEM_LOG_DIR, f'{slot.vendor_item_id}.json')
 
-    if os.path.isfile(product_log_file_path):
-        with open(product_log_file_path, 'r') as f:
+    if os.path.isfile(vendor_item_log_file_path):
+        with open(vendor_item_log_file_path, 'r') as f:
             product_log = json.load(f)
     else:
         product_log = {'date_count': {today_date: 0}, 'details': {today_date: []}}
@@ -75,14 +73,14 @@ def product_log(now, slot: Slot):
         details = list()
     details.append(today_time)  # todo: 차후에는 쿠키값과 아이피값을 함께 추가
     product_log['details'][today_date] = details
-    write_executor.submit(thread_json_dump, product_log_file_path, product_log)
+    write_executor.submit(thread_json_dump, vendor_item_log_file_path, product_log)
 
 
 def slot_log(now, slot: Slot):
     today_date = now.strftime('%Y%m%d')
     today_time = now.strftime('%H%M')
 
-    slot_log_file_path = os.path.join(SLOT_LOG_DIR, f'{slot.server_pk}.txt')
+    slot_log_file_path = os.path.join(SLOT_LOG_DIR, f'{slot.server_pk}.json')
 
     if os.path.isfile(slot_log_file_path):
         with open(slot_log_file_path, 'r') as f:            

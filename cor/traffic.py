@@ -15,7 +15,7 @@ import traceback
 from cor.Errors import NotFoundProducts, NotParsedSearchId, NotSearchedProductPrice, ServerError, WrongData
 from cor.slotdata import Slot, increment_count
 
-from cor.trafficlog import add_count_date_log, error_log, product_ip_log, product_log, slot_log
+from cor.trafficlog import add_count_date_log, error_log, product_ip_log, slot_log, vendor_item_log
 from cor.common import *
 file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 timeout = ClientTimeout(total=40)
@@ -265,7 +265,7 @@ async def work(slot, headers_list, slot_max_count, current_ip=None):
             await product_ip_log(slot, current_ip)
         _now = datetime.datetime.now()
         add_count_date_log(_now, 1)
-        product_log(_now, slot)
+        vendor_item_log(_now, slot)
         slot_log(_now, slot)
         
     # else:
