@@ -39,13 +39,12 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
     object_list = []
     random.shuffle(slots)
     for i, s in enumerate(slots):
-        residue = re.sub(r'.+products/', '', s['p_url'])        
+        print(s) 
         res = get_param_dict(s['p_url'])
-        try:
-            product_id = re.sub(f'\?itemId={res["itemId"]}&vendorItemId={res["vendorItemId"]}.*', '', residue)
-        except KeyError:
-            product_id = re.sub(f'\?vendorItemId={res["vendorItemId"]}.*', '', residue)
+        residue = re.sub(r'\?.+', '', s['p_url'])
+        product_id = re.sub(r'[^0-9]+', '', residue)
         res['productId'] = product_id
+        print(res)
         try:
             object_list.append(Slot(server_pk=s['id'], product_id=res['productId'], item_id=res["itemId"], keyword=s['Keyword'], vendor_item_id=res["vendorItemId"]))
         except KeyError:

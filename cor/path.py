@@ -14,7 +14,7 @@ VENDOR_ITEM_LOG_DIR = os.path.join(_LOG_DIR, 'products')
 SLOT_LOG_DIR = os.path.join(_LOG_DIR, 'slots')
 DATE_LOG_DIR = os.path.join(_LOG_DIR, 'date')
 ERROR_LOG_DIR = os.path.join(_LOG_DIR, 'error')
-PRODUCT_IP_DIR = os.path.join(_LOG_DIR, 'product_ip')
+VENDOR_SLOT_IP_LOG_DIR = os.path.join(_LOG_DIR, 'vendor_log')
 
 
 os.makedirs(_LOG_DIR, exist_ok=True)
@@ -22,5 +22,5 @@ os.makedirs(VENDOR_ITEM_LOG_DIR, exist_ok=True)
 os.makedirs(SLOT_LOG_DIR, exist_ok=True)
 os.makedirs(DATE_LOG_DIR, exist_ok=True)
 os.makedirs(ERROR_LOG_DIR, exist_ok=True)
-os.makedirs(PRODUCT_IP_DIR, exist_ok=True)
+os.makedirs(VENDOR_SLOT_IP_LOG_DIR, exist_ok=True)
 

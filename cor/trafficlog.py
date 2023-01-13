@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from cor.common import *
 
-from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, SLOT_LOG_DIR, PRODUCT_IP_DIR, VENDOR_ITEM_LOG_DIR
+from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, SLOT_LOG_DIR, VENDOR_SLOT_IP_LOG_DIR, VENDOR_ITEM_LOG_DIR
 from cor.slotdata import Slot
 
 write_executor = ThreadPoolExecutor(max_workers=1)
@@ -20,18 +20,27 @@ async def product_ip_log(slot, current_ip):
     _now = datetime.datetime.now()
     now_datetime = _now.strftime("%Y%m%d")
     today_time = _now.strftime('%H%M')
-    create_dir(f"{PRODUCT_IP_DIR}\\{now_datetime}")
-    ip_log_file_path = os.path.join(f"{PRODUCT_IP_DIR}\\{now_datetime}", f'{slot.vendor_item_id}.json')
+    create_dir(f"{VENDOR_SLOT_IP_LOG_DIR}\\{now_datetime}")
+    ip_log_file_path = os.path.join(f"{VENDOR_SLOT_IP_LOG_DIR}\\{now_datetime}", f'log.json')
     if os.path.isfile(ip_log_file_path):
-         with open(ip_log_file_path, 'r') as f:
-            ip_list = json.load(f)
+        with open(ip_log_file_path, 'r', encoding='utf-8') as f:
+            log_info = json.load(f)
     else:
-        ip_list = {current_ip: [today_time]}        
+        log_info = {slot.vendor_item_id: {slot.server_pk: {slot.keyword: {current_ip: []}}}}    
     try:
-        ip_list[current_ip]
-    except KeyError:        
-        ip_list[current_ip] = [today_time]
-    write_executor.submit(thread_json_dump, ip_log_file_path, ip_list)
+        log_info[slot.vendor_item_id]
+    except KeyError:
+        log_info[slot.vendor_item_id] = {slot.server_pk: {slot.keyword: {current_ip: []}}}    
+    try:
+        log_info[slot.vendor_item_id][slot.server_pk]
+    except KeyError:
+        log_info[slot.vendor_item_id][slot.server_pk] = {slot.keyword: {current_ip: []}}        
+    try:
+        log_info[slot.vendor_item_id][slot.server_pk][slot.keyword][current_ip]
+    except KeyError:
+        log_info[slot.vendor_item_id][slot.server_pk][slot.keyword][current_ip] = list()
+    log_info[slot.vendor_item_id][slot.server_pk][slot.keyword][current_ip].append(today_time)
+    write_executor.submit(thread_json_dump, ip_log_file_path, log_info)
     
         
 def add_count_date_log(now, num):
