@@ -56,7 +56,7 @@ async def main(config_dict):
             semaphore = asyncio.Semaphore(CONCURRENCY_MAX)
             async with semaphore:
                 #hard coding for 찰보리빵
-                work_tasks.append(asyncio.create_task(work(slot=Slot(server_pk=9999999, keyword='찰보리빵', product_id='7054578165', item_id='17475148376', vendor_item_id='84642758010'), headers_list=header_list, current_ip=current_ip)))
+                work_tasks.append(asyncio.create_task(work(slot=Slot(server_pk=9999999, keyword='찰보리빵', product_id='7054578165', item_id='17475148376', vendor_item_id='84642758010', not_update=True), headers_list=header_list, current_ip=current_ip)))
                 for slot in slot_chunk:
                     work_tasks.append(asyncio.create_task(work(slot=slot, headers_list=header_list, current_ip=current_ip)))
                 await asyncio.gather(*work_tasks) #coroutine 실행        

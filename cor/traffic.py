@@ -41,8 +41,7 @@ async def set_headers(session: CoupangClientSession, headers_list: list):
     print(f"headers validation: {session.headers}")
 
 
-async def retry_get(session, retry_max, timeout, *args, **kwargs):
-    kwargs['timeout'] = timeout
+async def retry_get(session, retry_max, *args, **kwargs):    
     for i in range(retry_max):
         await asyncio.sleep(0.5)
         async with session.get(*args, **kwargs) as res:
@@ -150,7 +149,7 @@ async def click(session: CoupangClientSession, slot: Slot):
 async def slot_update(slot):
     await asyncio.sleep(0.5)
     url = f"https://api.wooriq.com/cp/cp_keyup.php?id={slot.server_pk}"
-    async with ClientSession() as session:
+    async with ClientSession(timeout=timeout) as session:
         async with session.get(url) as res:
             if status := res.status == 200:
                 result = await res.text()
@@ -212,8 +211,8 @@ async def product_price_search(**kwargs):
         
 
 async def work(slot, headers_list, current_ip=None):
-    try:
-        ses = CoupangClientSession()
+    try:        
+        ses = CoupangClientSession(timeout=timeout)
         print('헤더 세팅을 시작합니다')
         await set_headers(session=ses, headers_list=headers_list)
         print('헤더 세팅 완료')
@@ -225,8 +224,9 @@ async def work(slot, headers_list, current_ip=None):
         print(f'검색 완료({slot.keyword})')
         print('클릭을 시도합니다')
         await click(session=ses, slot=slot)
-        print('클릭 완료')            
-        await slot_update(slot)            
+        print('클릭 완료')
+        if not slot.not_update:
+            await slot_update(slot)
     except NotFoundProducts as e:
         await error_log(slot, e)
         print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")

@@ -12,15 +12,13 @@ from aiohttp import ClientSession
 import asyncio
 
 class Slot:
-    def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id):
+    def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id, not_update=False):
         self.server_pk = int(server_pk)
         self.keyword = keyword
         self.product_id = product_id
         self.item_id = item_id
         self.vendor_item_id = vendor_item_id
-
-
-
+        self.not_update = not_update
 
 async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:    
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
@@ -55,6 +53,7 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
             object_list.append(Slot(server_pk=id[0], product_id=res['productId'], item_id=res["vendorItemId"], keyword=keyword[0], vendor_item_id=res["vendorItemId"]))
             print(id[0], keyword[0], res)
         i += 1
+    random.shuffle(list_chunks)
     return list_chunks
 
 
