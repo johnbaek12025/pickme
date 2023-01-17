@@ -49,9 +49,7 @@ async def get_myip(wait_seconds=180, proxy=None):
             myip = re.search('\d+\.\d+\.\d+\.\d+', page_text).group()
         except:
             pass
-
         que.put(myip)
-
         return myip
 
     while True:

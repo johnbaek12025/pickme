@@ -19,27 +19,30 @@ def thread_json_dump(file_path, content):
 async def product_ip_log(slot, current_ip):
     _now = datetime.datetime.now()
     now_datetime = _now.strftime("%Y%m%d")
-    today_time = _now.strftime('%H%M')
-    create_dir(f"{VENDOR_SLOT_IP_LOG_DIR}\\{now_datetime}")
-    ip_log_file_path = os.path.join(f"{VENDOR_SLOT_IP_LOG_DIR}\\{now_datetime}", f'log.json')
+    today_time = _now.strftime('%H%M')    
+    ip_log_file_path = os.path.join(f"{VENDOR_SLOT_IP_LOG_DIR}", f'{now_datetime}.json')
     if os.path.isfile(ip_log_file_path):
         with open(ip_log_file_path, 'r', encoding='utf-8') as f:
             log_info = json.load(f)
-    else:
-        log_info = {slot.vendor_item_id: {slot.server_pk: {slot.keyword: {current_ip: []}}}}    
+    else:        
+        log_info = {slot.vendor_item_id: {current_ip: {slot.server_pk: {slot.keyword: []}}}}
     try:
         log_info[slot.vendor_item_id]
     except KeyError:
-        log_info[slot.vendor_item_id] = {slot.server_pk: {slot.keyword: {current_ip: []}}}    
+        log_info[slot.vendor_item_id] = {current_ip: {slot.server_pk: {slot.keyword: []}}}
     try:
-        log_info[slot.vendor_item_id][slot.server_pk]
+        log_info[slot.vendor_item_id][current_ip]
     except KeyError:
-        log_info[slot.vendor_item_id][slot.server_pk] = {slot.keyword: {current_ip: []}}        
+        log_info[slot.vendor_item_id][current_ip] = {slot.server_pk: {slot.keyword: []}}
     try:
-        log_info[slot.vendor_item_id][slot.server_pk][slot.keyword][current_ip]
+        log_info[slot.vendor_item_id][current_ip][slot.server_pk]
     except KeyError:
-        log_info[slot.vendor_item_id][slot.server_pk][slot.keyword][current_ip] = list()
-    log_info[slot.vendor_item_id][slot.server_pk][slot.keyword][current_ip].append(today_time)
+        log_info[slot.vendor_item_id][current_ip][slot.server_pk]= {slot.keyword: list()}
+    try:
+        log_info[slot.vendor_item_id][current_ip][slot.server_pk][slot.keyword]
+    except KeyError:
+        log_info[slot.vendor_item_id][current_ip][slot.server_pk][slot.keyword] = list()
+    log_info[slot.vendor_item_id][current_ip][slot.server_pk][slot.keyword].append(today_time)
     write_executor.submit(thread_json_dump, ip_log_file_path, log_info)
     
         

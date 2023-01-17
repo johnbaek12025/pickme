@@ -13,12 +13,12 @@ from bs4 import BeautifulSoup as bf
 import requests
 import traceback
 from cor.Errors import NotFoundProducts, NotParsedSearchId, NotSearchedProductPrice, ServerError, WrongData
-from cor.slotdata import Slot, increment_count
+from cor.slotdata import Slot
 
 from cor.trafficlog import add_count_date_log, error_log, product_ip_log, slot_log, vendor_item_log
 from cor.common import *
 file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
-timeout = ClientTimeout(total=40)
+timeout = ClientTimeout(total=10)
 retry_max = 3
 
 async def create_dir(path):
@@ -43,7 +43,7 @@ async def set_headers(session: CoupangClientSession, headers_list: list):
 
 async def retry_get(session, retry_max, timeout, *args, **kwargs):
     kwargs['timeout'] = timeout
-    for _ in range(retry_max):
+    for i in range(retry_max):
         await asyncio.sleep(0.5)
         async with session.get(*args, **kwargs) as res:
             if status := res.status == 200:
@@ -53,7 +53,11 @@ async def retry_get(session, retry_max, timeout, *args, **kwargs):
                 except TimeoutError:
                     continue
                 
-                else:                    
+                else:
+                    if i == 1:
+                        print('두 번째에 성공')         
+                    elif i == 2:
+                        print('센 번째에 성공')         
                     return result
             else:
                 status = status                
@@ -118,7 +122,7 @@ async def click(session: CoupangClientSession, slot: Slot):
     try:
         info = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url1)
     except ServerError as e:
-        raise(f"{slot.keyword} couldn't click")
+        raise(f"{url1} couldn't click")
     
     data = bf(info, 'html.parser')    
     children = data.findChild('div', {"id": "wrap"})
@@ -131,7 +135,7 @@ async def click(session: CoupangClientSession, slot: Slot):
         try:
             info = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url2)
         except ServerError as e:
-            raise(f"{slot.keyword} couldn't click")
+            raise(f"{url2} couldn't click")
         dir_path = f'{file_path}\\coro_test'
         await create_dir(dir_path)    
         try:
@@ -207,69 +211,50 @@ async def product_price_search(**kwargs):
         session.close()
         
 
-async def work(slot, headers_list, slot_max_count, current_ip=None):
-        
-        
-    # if slot.count < slot_max_count:
-        try:
-            ses = CoupangClientSession()
-            print('헤더 세팅을 시작합니다')
-            await set_headers(session=ses, headers_list=headers_list)
-            print('헤더 세팅 완료')
-            print('메인 페이지를 접속합니다')
-            await go_main_page(session=ses)
-            print('메인 페이지를 접속 완료')
-            print(f'검색을 시도합니다({slot.keyword})')
-            await search(session=ses, slot=slot)
-            print(f'검색 완료({slot.keyword})')
-            print('클릭을 시도합니다')
-            await click(session=ses, slot=slot)
-            print('클릭 완료')
-            await increment_count(slot)        
-            await slot_update(slot)            
-        except NotFoundProducts as e:
-            await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-        except NotParsedSearchId as e:
-            await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-        except ServerError as e:
-            await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-        except FileNotFoundError as e:
-            await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-        except ValueError as e:
-            await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-        except Exception as e:
-            tb_str = traceback.format_exc()        
-            await error_log(slot, tb_str)
-        finally:        
-            await ses.close()            
-            
-        #product_price search
-        # product_url = f'https://www.coupang.com/vp/products/{slot.product_id}?itemId={slot.item_id}&vendorItemId={slot.vendor_item_id}'
-        # print(f"search product_price url: {product_url}")
-        # try:
-        #     await product_price_search(product_url=product_url, product_id=slot.product_id, item_id=slot.item_id, vendor_item_id=slot.vendor_item_id)
-        # except ServerError as e:
-        #     print(f"{slot.keyword}, searcy_product_price request error {e}")
-        # except NotSearchedProductPrice as e:
-        #     print(f"{slot.keyword}, {e} ")
-        # except Exception as e:
-        #     print(f"{slot.keyword}, {e}")
-            
-        # 기록
-        if current_ip:
-            await product_ip_log(slot, current_ip)
-        _now = datetime.datetime.now()
-        add_count_date_log(_now, 1)
-        vendor_item_log(_now, slot)
-        slot_log(_now, slot)
-        
-    # else:
-        async with slot.lock:
-            if  today := datetime.date.today() != slot.previous_date:
-                slot.previous_date = today
-                slot.count = 0
+async def work(slot, headers_list, current_ip=None):
+    try:
+        ses = CoupangClientSession()
+        print('헤더 세팅을 시작합니다')
+        await set_headers(session=ses, headers_list=headers_list)
+        print('헤더 세팅 완료')
+        print('메인 페이지를 접속합니다')
+        await go_main_page(session=ses)
+        print('메인 페이지를 접속 완료')
+        print(f'검색을 시도합니다({slot.keyword})')
+        await search(session=ses, slot=slot)
+        print(f'검색 완료({slot.keyword})')
+        print('클릭을 시도합니다')
+        await click(session=ses, slot=slot)
+        print('클릭 완료')            
+        await slot_update(slot)            
+    except NotFoundProducts as e:
+        await error_log(slot, e)
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except WrongData as e:
+        await error_log(slot, e)
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except NotParsedSearchId as e:
+        await error_log(slot, e)
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except ServerError as e:
+        await error_log(slot, e)
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except FileNotFoundError as e:
+        await error_log(slot, e)
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except ValueError as e:
+        await error_log(slot, e)
+        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+    except Exception as e:
+        tb_str = traceback.format_exc()        
+        await error_log(slot, tb_str)
+    finally:        
+        await ses.close()
+    
+    # 기록
+    if current_ip:
+        await product_ip_log(slot, current_ip)
+    _now = datetime.datetime.now()
+    add_count_date_log(_now, 1)
+    vendor_item_log(_now, slot)
+    slot_log(_now, slot)
