@@ -20,8 +20,6 @@ from cor.trafficlog import *
 
 logger = logging.getLogger(__name__)
 
-def list_chunk(lst, n):
-    return [lst[i:i+n] for i in range(0, len(lst), n)]
 
 async def main(config_dict):
     HEADER_LIST_PATH = config_dict.get("header_list_path")

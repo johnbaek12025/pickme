@@ -69,7 +69,7 @@ async def go_main_page(session):
     url = 'https://m.coupang.com'
     
     try:
-        await retry_get(session, retry_max=retry_max, timeout=timeout, url=url)
+        await retry_get(session, retry_max=retry_max, url=url)
     except ServerError as e:
         raise ServerError(f"coudn't get cookies from main_page")
             
@@ -77,7 +77,7 @@ async def search(session: CoupangClientSession, slot: Slot):
     url = f"https://m.coupang.com/nm/search?q={quote(slot.keyword)}"
     print(f"search url {url}")
     try:
-        info = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url)
+        info = await retry_get(session, retry_max=retry_max, url=url)
     except ServerError as e:
         raise(f"{slot.keyword} couldn't find searchId")
     # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
@@ -119,7 +119,7 @@ async def click(session: CoupangClientSession, slot: Slot):
     print(slot.product_id, slot.item_id, slot.keyword, session.search_id)
     print('url:', url1)
     try:
-        info = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url1)
+        info = await retry_get(session, retry_max=retry_max, url=url1)
     except ServerError as e:
         raise(f"{url1} couldn't click")
     
@@ -132,7 +132,7 @@ async def click(session: CoupangClientSession, slot: Slot):
     if isinstance(to_bool(fashion), bool):
         url2 = f"https://m.coupang.com/vm/products/{slot.product_id}/brand-sdp/items/{slot.item_id}/?vendorItemId={slot.vendor_item_id}&style=MOBILE_BROWSER&isFashion={fashion}"
         try:
-            info = await retry_get(session, retry_max=retry_max, timeout=timeout, url=url2)
+            info = await retry_get(session, retry_max=retry_max, url=url2)
         except ServerError as e:
             raise(f"{url2} couldn't click")
         dir_path = f'{file_path}\\coro_test'

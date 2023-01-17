@@ -20,6 +20,7 @@ class Slot:
         self.vendor_item_id = vendor_item_id
         self.not_update = not_update
 
+
 async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:    
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
     def get_param_dict(url):

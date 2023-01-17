@@ -6,19 +6,86 @@ __version__ = '1.0.0'
 __pkgname__ = 'pseudo'
 
 import asyncio
+from collections import OrderedDict
 import locale
 import logging
 import os
 import platform
 import pickle
+import random
+import re
 import sys
+from typing import List, Dict
 
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from urllib.parse import parse_qs, urlsplit
 
 logger = logging.getLogger(__name__)
 
 def list_chunk(lst, n):
     return [lst[i:i+n] for i in range(0, len(lst), n)]
+
+def get_param_dict(url):
+    params = parse_qs(urlsplit(url).query)
+    return {k:v[0] if v else None for k,v in params.items()}
+
+def get_non_duplicated_dict_list(original_list: List[Dict]) -> List[List[Dict]]:
+    """_summary_
+
+    Args:
+        original_list (_type_): _description_ [{key: val, ....}, {key: val, ....},...]
+        -> {val1: [{val2: val3}, ...], val1: [{val2: val3, ...}, ...]}
+    """
+    CONCURRENCY_MAX = 10
+    vendor_dict = {}
+    for item in original_list:
+        try:
+            item['p_url'] = re.sub(r' + ', '', item['p_url'])
+            re.match(r'\S*.*https://.+', item['p_url']).group()
+        except AttributeError:        
+            continue
+        try:
+            item['p_url'] = re.search(r'https://.+', item['p_url']).group()
+        except AttributeError:
+            continue
+        item['p_url'] = re.sub('&isAddedCart=', '', item['p_url'])    
+        try:
+            vendor_dict[item['p_url']]
+        except KeyError:
+            vendor_dict[item['p_url']] = []
+        
+        vendor_dict[item['p_url']].append({item['id']: item['Keyword']})
+
+        
+    data = OrderedDict(sorted(vendor_dict.items(), key=lambda x: len(x[1]), reverse=random.choice([True, False])))
+    list_chunks = []
+    chunk = []
+    i = 0    
+    while i < len(data):
+        url, val = list(data.items())[i]
+        try:
+            re.match(r'https.+', url).group()
+        except AttributeError:
+            continue
+        residue = re.sub(r'\?.+', '', url)
+        res = get_param_dict(url)
+        product_id = re.sub(r'[^0-9]+', '', residue)
+        res['productId'] = product_id
+        if len(chunk) >= CONCURRENCY_MAX:
+            list_chunks.append(chunk)
+            chunk = []
+        try:           
+            val = val.pop()
+        except IndexError:
+            pass
+        sid = list(val.keys())
+        keyword = list(val.values())
+        try:
+            chunk.append({'id': sid[0], 'keyword':keyword[0], 'product_id': product_id, 'item_id': res['itemId'], 'vendor_item_id': res['vendorItemId']})
+        except KeyError:
+            chunk.append({'id': sid[0], 'keyword':keyword[0], 'product_id': product_id, 'item_id': res['vendorItemId'], 'vendor_item_id': res['vendorItemId']})
+        i += 1
+    return list_chunks
 
 def platform_info():
     lines = []
