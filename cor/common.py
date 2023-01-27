@@ -29,6 +29,7 @@ def get_param_dict(url):
     params = parse_qs(urlsplit(url).query)
     return {k:v[0] if v else None for k,v in params.items()}
 
+<<<<<<< HEAD
 def get_non_duplicated_dict_list(vendor_dict, CONCURRENCY_MAX):
     i = 0
     test_chunk = []
@@ -75,6 +76,68 @@ def preprocess(result):
     Returns:
         _type_: _description_ {val1: [{val2: val3}, ...], val1: [{val2: val3, ...}, ...]}
     """
+=======
+def get_non_duplicated_dict_list(original_dict: Dict[List]) -> List[List[Dict]]:
+    """_summary_
+
+    Args:
+        original_dict (_type_): _description_ [{key: val, ....}, {key: val, ....},...]
+        Returns:
+        _type_: _description_[[{key: val, ....},....][{key: val, ....},....],..]
+    """
+    CONCURRENCY_MAX = 10    
+    list_chunks = []
+    test_chunk = []
+    test_list_chunks = []
+    i = 0    
+    urls = list(original_dict.keys())    
+    while len(original_dict.items()):
+        url = urls[i]
+        try:
+            value = original_dict[url]
+        except KeyError:
+            continue    
+        if not value:
+            del(original_dict[url])
+            if len(urls) - 1 == i:        
+                i = 0
+            else:
+                i += 1
+            i += 1
+            continue
+        try:
+            re.match(r'https.+', url).group()
+        except AttributeError:
+            continue
+        residue = re.sub(r'\?.+', '', url)
+        res = get_param_dict(url)
+        product_id = re.sub(r'[^0-9]+', '', residue)
+        res['productId'] = product_id
+        if len(test_chunk) >= CONCURRENCY_MAX:
+            test_list_chunks.append(test_chunk)
+            test_chunk = []
+        
+        val = original_dict[url].pop()    
+        sid = list(val.keys())
+        keyword = list(val.values())
+        try:
+            test_chunk.append({'id': sid[0], 'keyword':keyword[0], 'product_id': product_id, 'item_id': res['itemId'], 'vendor_item_id': res['vendorItemId']})
+        except KeyError:
+            test_chunk.append({'id': sid[0], 'keyword':keyword[0], 'product_id': product_id, 'item_id': res['vendorItemId'], 'vendor_item_id': res['vendorItemId']})
+        
+    return list_chunks
+
+
+def preprocess(result:List[Dict])->Dict[List]:
+    """_summary_
+
+    Args:
+        result (_type_): _description_ [{key1: val1, key2: val2, ....}, {key1: val1, key2: val2, ....}, {key1: val1, key2: val2, ....}]
+        
+    Returns:
+        _type_: _description_ {val1: [{val2: val3}, ...], val1: [{val2: val3, ...}, ...]}
+    """
+>>>>>>> 3583b56535f67138ccdcfb78742f9a7889eb3c88
     vendor_dict = {}            
     for item in result:
         try:

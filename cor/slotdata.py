@@ -20,7 +20,14 @@ def thread_json_dump(file_path, content):
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(content, f, ensure_ascii=False)
 
+<<<<<<< HEAD
 class Slot:    
+=======
+class Slot:
+    count = 0
+    previous_server_pk = None
+    previous_date = None
+>>>>>>> 3583b56535f67138ccdcfb78742f9a7889eb3c88
     def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id, not_update=False):
         self.server_pk = int(server_pk)
         self.keyword = keyword
@@ -28,6 +35,7 @@ class Slot:
         self.item_id = item_id
         self.vendor_item_id = vendor_item_id
         self.not_update = not_update
+<<<<<<< HEAD
         self.count = 0
         self.lock = asyncio.Lock()
 
@@ -36,6 +44,11 @@ async def increment_count(obj):
     async with obj.lock:
         obj.count += 1
 
+=======
+        if Slot.previous_server_pk != self.server_pk:
+            Slot.count += 1
+        Slot.previous_server_pk = self.server_pk
+>>>>>>> 3583b56535f67138ccdcfb78742f9a7889eb3c88
 
 async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:    
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
@@ -45,12 +58,90 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
     data = await get_data_set(CONCURRENCY_MAX)        
     data = OrderedDict(sorted(data.items(), key=lambda x: len(x[1]), reverse=True))
     write_executor.submit(thread_json_dump, 'before_processing.json', data)
+<<<<<<< HEAD
     list_chunks = get_non_duplicated_dict_list(data, CONCURRENCY_MAX)
     write_executor.submit(thread_json_dump, 'after_processing.json', list_chunks)
     random.shuffle(list_chunks)
     return list_chunks
 
    
+=======
+    object_list = []
+    list_chunks = []
+    test_chunk = []
+    test_list_chunks = []
+    i = 0    
+    urls = list(data.keys())    
+    while len(data.items()):
+        url = urls[i]
+        try:
+            value = data[url]
+        except KeyError:
+            continue    
+        if not value:
+            del(data[url])
+            if len(urls) - 1 == i:        
+                i = 0
+            else:
+                i += 1
+            i += 1
+            continue
+        try:
+            re.match(r'https.+', url).group()
+        except AttributeError:
+            continue
+        residue = re.sub(r'\?.+', '', url)
+        res = get_param_dict(url)
+        product_id = re.sub(r'[^0-9]+', '', residue)
+        res['productId'] = product_id
+        if len(object_list) >= CONCURRENCY_MAX:
+            list_chunks.append(object_list)
+            test_list_chunks.append(test_chunk)
+            test_chunk = []
+            object_list = []
+        
+        val = data[url].pop()    
+        id = list(val.keys())
+        keyword = list(val.values())
+        try:
+            object_list.append(Slot(server_pk=id[0], product_id=res['productId'], item_id=res["itemId"], keyword=keyword[0], vendor_item_id=res["vendorItemId"]))
+            test_chunk.append({"server_pk": id[0], "product_id": res['productId'], "item_id": res["itemId"], "vendor_item_id": res["vendorItemId"], "keyword": keyword[0]})
+            print(id[0], keyword[0], res)
+        except KeyError:            
+            object_list.append(Slot(server_pk=id[0], product_id=res['productId'], item_id=res["vendorItemId"], keyword=keyword[0], vendor_item_id=res["vendorItemId"]))
+            test_chunk.append({"server_pk": id[0], "product_id": res['productId'], "item_id": res["vendorItemId"], "vendor_item_id": res["vendorItemId"], "keyword": keyword[0]})
+            print(id[0], keyword[0], res)
+    test_list_chunks.append(test_chunk)
+    list_chunks.append(object_list)
+    write_executor.submit(thread_json_dump, 'after_processing.json', test_list_chunks)
+    random.shuffle(list_chunks)
+    return list_chunks
+
+
+def preprocess(result):
+    vendor_dict = {}
+    #hard coding for 찰보리빵    
+    result.append({'p_url': 'https://www.coupang.com/vp/products/7054578165?itemId=17475148376&vendorItemId=84642758010&isAddedCart=', 'Keyword': '찰보리빵', 'id': 9999999})
+    for item in result:
+        try:
+            item['p_url'] = re.sub(r' + ', '', item['p_url'])
+            re.match(r'\S*.*https://.+', item['p_url']).group()
+        except AttributeError:            
+            continue
+        try:
+            item['p_url'] = re.search(r'https://.+', item['p_url']).group()
+        except AttributeError:
+            continue
+        item['p_url'] = re.sub('&isAddedCart=', '', item['p_url'])    
+        try:
+            vendor_dict[item['p_url']]
+        except KeyError:
+            vendor_dict[item['p_url']] = []        
+        vendor_dict[item['p_url']].append({item['id']: item['Keyword']})
+    return vendor_dict   
+    
+
+>>>>>>> 3583b56535f67138ccdcfb78742f9a7889eb3c88
 async def get_data_set(CONCURRENCY_MAX):
     semaphore = asyncio.Semaphore(CONCURRENCY_MAX)    
     url = 'https://api.wooriq.com/cp/cp_keysel.php'

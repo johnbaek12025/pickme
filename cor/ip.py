@@ -20,6 +20,10 @@ async def get_myip(wait_seconds=180, proxy=None):
         'http://www.trackip.net/',
         'http://icanhazip.com/',
         'http://formyip.com/',        
+<<<<<<< HEAD
+=======
+        'http://checkip.dyndns.com/',
+>>>>>>> 3583b56535f67138ccdcfb78742f9a7889eb3c88
         'http://httpbin.org/ip',
         'https://api.ipify.org',
         'https://v4.ident.me']
