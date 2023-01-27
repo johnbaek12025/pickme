@@ -75,11 +75,8 @@ async def main(config_dict):
                 work_tasks.append(asyncio.create_task(work(slot=slot_dict[slot['server_pk']], headers_list=header_list, COOKIE_REUSE_INTERVAL=COOKIE_REUSE_INTERVAL , COOKIE_MAX_REUSE=COOKIE_MAX_REUSE, current_ip=current_ip)))
             await asyncio.gather(*work_tasks) #coroutine 실행        
 
-        
-        
-            
-            
-            
+
+
 async def read_json(path):
     with open(path, 'rt', encoding='utf-8-sig') as f:
         data = f.read()

@@ -31,7 +31,6 @@ class Slot:
         self.count = 0
         self.lock = asyncio.Lock()
 
-
 async def increment_count(obj):
     async with obj.lock:
         obj.count += 1
