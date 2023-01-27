@@ -1,4 +1,5 @@
 import asyncio
+from collections import OrderedDict
 import datetime
 import datetime
 import json
@@ -6,12 +7,20 @@ import re
 from typing import List
 from urllib.parse import parse_qs, urlsplit
 from cor.Errors import ServerError
+from common import get_non_duplicated_dict_list, preprocess
 from cor.ip import swap_ip
 import random
 from aiohttp import ClientSession
 import asyncio
 
-class Slot:
+from concurrent.futures import ThreadPoolExecutor
+write_executor = ThreadPoolExecutor(max_workers=1)
+
+def thread_json_dump(file_path, content):
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(content, f, ensure_ascii=False)
+
+class Slot:    
     def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id, not_update=False):
         self.server_pk = int(server_pk)
         self.keyword = keyword
@@ -19,6 +28,13 @@ class Slot:
         self.item_id = item_id
         self.vendor_item_id = vendor_item_id
         self.not_update = not_update
+        self.count = 0
+        self.lock = asyncio.Lock()
+
+
+async def increment_count(obj):
+    async with obj.lock:
+        obj.count += 1
 
 
 async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:    
@@ -26,59 +42,15 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
     def get_param_dict(url):
         params = parse_qs(urlsplit(url).query)
         return {k:v[0] if v else None for k,v in params.items()}
-    data = await get_data_set(CONCURRENCY_MAX)
-    # print(f"갯수 {len(slots)}")
-    object_list = []
-    list_chunks = []
-    i = 0
-    while i < len(data):
-        url, val = list(data.items())[i]
-        try:
-            re.match(r'https.+', url).group()
-        except AttributeError:
-            continue
-        residue = re.sub(r'\?.+', '', url)
-        res = get_param_dict(url)
-        product_id = re.sub(r'[^0-9]+', '', residue)
-        res['productId'] = product_id        
-        if len(object_list) >= CONCURRENCY_MAX:
-            list_chunks.append(object_list)
-            object_list = []
-        val = val.pop()
-        id = list(val.keys())
-        keyword = list(val.values())
-        try:
-            object_list.append(Slot(server_pk=id[0], product_id=res['productId'], item_id=res["itemId"], keyword=keyword[0], vendor_item_id=res["vendorItemId"]))
-            print(id[0], keyword[0], res)
-        except KeyError:            
-            object_list.append(Slot(server_pk=id[0], product_id=res['productId'], item_id=res["vendorItemId"], keyword=keyword[0], vendor_item_id=res["vendorItemId"]))
-            print(id[0], keyword[0], res)
-        i += 1
+    data = await get_data_set(CONCURRENCY_MAX)        
+    data = OrderedDict(sorted(data.items(), key=lambda x: len(x[1]), reverse=True))
+    write_executor.submit(thread_json_dump, 'before_processing.json', data)
+    list_chunks = get_non_duplicated_dict_list(data, CONCURRENCY_MAX)
+    write_executor.submit(thread_json_dump, 'after_processing.json', list_chunks)
     random.shuffle(list_chunks)
     return list_chunks
 
-
-def preprocess(result):
-    vendor_dict = {}
-    for item in result:
-        try:
-            item['p_url'] = re.sub(r' + ', '', item['p_url'])
-            re.match(r'\S*.*https://.+', item['p_url']).group()
-        except AttributeError:            
-            continue
-        try:
-            item['p_url'] = re.search(r'https://.+', item['p_url']).group()
-        except AttributeError:
-            continue
-        item['p_url'] = re.sub('&isAddedCart=', '', item['p_url'])    
-        try:
-            vendor_dict[item['p_url']]
-        except KeyError:
-            vendor_dict[item['p_url']] = []        
-        vendor_dict[item['p_url']].append({item['id']: item['Keyword']})
-    return vendor_dict   
-    
-
+   
 async def get_data_set(CONCURRENCY_MAX):
     semaphore = asyncio.Semaphore(CONCURRENCY_MAX)    
     url = 'https://api.wooriq.com/cp/cp_keysel.php'

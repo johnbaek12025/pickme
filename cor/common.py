@@ -29,20 +29,58 @@ def get_param_dict(url):
     params = parse_qs(urlsplit(url).query)
     return {k:v[0] if v else None for k,v in params.items()}
 
-def get_non_duplicated_dict_list(original_list: List[Dict]) -> List[List[Dict]]:
+def get_non_duplicated_dict_list(vendor_dict, CONCURRENCY_MAX):
+    i = 0
+    test_chunk = []
+    test_list_chunks = []
+    urls = list(vendor_dict.keys())
+    while len(vendor_dict[urls[0]]) > 0:
+        url = urls[i]
+        try:
+            re.match(r'https.+', url).group()
+        except AttributeError:
+            continue
+        residue = re.sub(r'\?.+', '', url)
+        res = get_param_dict(url)
+        product_id = re.sub(r'[^0-9]+', '', residue)
+        res['productId'] = product_id
+        if len(test_chunk) >= CONCURRENCY_MAX:
+            test_list_chunks.append(test_chunk)
+            test_chunk = []
+        try:
+            val = vendor_dict[urls[i]].pop()
+            id, keyword = list(val.items())[0]
+            try:
+                test_chunk.append({"server_pk": id, "product_id": res['productId'], "item_id": res["itemId"], "vendor_item_id": res["vendorItemId"], "keyword": keyword})                
+            except KeyError:
+                try:
+                    test_chunk.append({"server_pk": id, "product_id": res['productId'], "item_id": res["itemId"], "vendor_item_id": res["itemId"], "keyword": keyword})
+                except KeyError:
+                    test_chunk.append({"server_pk": id, "product_id": res['productId'], "item_id": res["vendorItemId"], "vendor_item_id": res["vendorItemId"], "keyword": keyword})
+        except IndexError:
+            pass
+        if len(urls) - 1 <= i:
+            i = 0
+        else:
+            i += 1
+    test_list_chunks.append(test_chunk)
+    return test_list_chunks
+
+def preprocess(result):
     """_summary_
 
     Args:
-        original_list (_type_): _description_ [{key: val, ....}, {key: val, ....},...]
-        -> {val1: [{val2: val3}, ...], val1: [{val2: val3, ...}, ...]}
+        result (_type_): _description_ [{key1: val1, key2: val2, ....}, {key1: val1, key2: val2, ....}, {key1: val1, key2: val2, ....}]
+        
+    Returns:
+        _type_: _description_ {val1: [{val2: val3}, ...], val1: [{val2: val3, ...}, ...]}
     """
-    CONCURRENCY_MAX = 10
-    vendor_dict = {}
-    for item in original_list:
+    vendor_dict = {}            
+    for item in result:
         try:
             item['p_url'] = re.sub(r' + ', '', item['p_url'])
             re.match(r'\S*.*https://.+', item['p_url']).group()
-        except AttributeError:        
+        except AttributeError:            
             continue
         try:
             item['p_url'] = re.search(r'https://.+', item['p_url']).group()
@@ -52,40 +90,9 @@ def get_non_duplicated_dict_list(original_list: List[Dict]) -> List[List[Dict]]:
         try:
             vendor_dict[item['p_url']]
         except KeyError:
-            vendor_dict[item['p_url']] = []
-        
+            vendor_dict[item['p_url']] = []        
         vendor_dict[item['p_url']].append({item['id']: item['Keyword']})
-
-        
-    data = OrderedDict(sorted(vendor_dict.items(), key=lambda x: len(x[1]), reverse=random.choice([True, False])))
-    list_chunks = []
-    chunk = []
-    i = 0    
-    while i < len(data):
-        url, val = list(data.items())[i]
-        try:
-            re.match(r'https.+', url).group()
-        except AttributeError:
-            continue
-        residue = re.sub(r'\?.+', '', url)
-        res = get_param_dict(url)
-        product_id = re.sub(r'[^0-9]+', '', residue)
-        res['productId'] = product_id
-        if len(chunk) >= CONCURRENCY_MAX:
-            list_chunks.append(chunk)
-            chunk = []
-        try:           
-            val = val.pop()
-        except IndexError:
-            pass
-        sid = list(val.keys())
-        keyword = list(val.values())
-        try:
-            chunk.append({'id': sid[0], 'keyword':keyword[0], 'product_id': product_id, 'item_id': res['itemId'], 'vendor_item_id': res['vendorItemId']})
-        except KeyError:
-            chunk.append({'id': sid[0], 'keyword':keyword[0], 'product_id': product_id, 'item_id': res['vendorItemId'], 'vendor_item_id': res['vendorItemId']})
-        i += 1
-    return list_chunks
+    return vendor_dict   
 
 def platform_info():
     lines = []

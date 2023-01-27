@@ -1,20 +1,96 @@
 import asyncio
 import datetime
+import glob
 import json
 import logging
 import os
+#from traffic import CoupangClientSession
+
 from concurrent.futures import ThreadPoolExecutor
+from cor.clientsession import CoupangClientSession
 from cor.common import *
 
-from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, SLOT_LOG_DIR, VENDOR_SLOT_IP_LOG_DIR, VENDOR_ITEM_LOG_DIR
+from cor.path import DATE_LOG_DIR, ERROR_LOG_DIR, SLOT_LOG_DIR, VENDOR_SLOT_IP_LOG_DIR, VENDOR_ITEM_LOG_DIR, COOKIE_UA_DIR
 from cor.slotdata import Slot
-
+import pickle
 write_executor = ThreadPoolExecutor(max_workers=1)
 
 
 def thread_json_dump(file_path, content):
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(content, f, ensure_ascii=False)
+
+
+def extract_cookie(header_id, path):    
+    path = path.replace('\\', '/')
+    pcid = re.sub(f".+/{header_id}/", "", path)
+    return pcid
+    
+
+async def update_cookies_to(session: CoupangClientSession, header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE):
+    header_cookie_dir = os.path.join(f"{COOKIE_UA_DIR}", header['Num'])
+    os.makedirs(header_cookie_dir, exist_ok=True)
+    ua_cookie_log = os.path.join(f"{COOKIE_UA_DIR}", "cookie_log.json")    
+    cookie_files = list(filter(os.path.isfile, glob.glob(os.path.join(header_cookie_dir, "*"))))
+    cookie_files.sort(key=lambda x: os.path.getmtime(x))
+    get_success = False
+    if os.path.isfile(ua_cookie_log):            
+        with open(ua_cookie_log, 'r', encoding='utf-8') as f:
+            cookie_log = json.load(f)
+    else:
+        cookie_log = {}        
+    for cf in cookie_files:        
+        pcid = extract_cookie(header['Num'], cf)        
+        how_many_used, last_used_at = cookie_log.get(pcid, (0, None))
+        if last_used_at is not None:
+            last_used_at = datetime.datetime.strptime(last_used_at, '%Y-%m-%d %H:%M')
+            if datetime.datetime.now() - last_used_at < datetime.timedelta(hours=COOKIE_REUSE_INTERVAL):
+                print(pcid, '3시간 이내의 사용 이력으로 해당 쿠키를 건너 뜀------------------------')
+                continue
+        if how_many_used <= COOKIE_MAX_REUSE:
+            cookie_log[pcid] = [how_many_used + 1, datetime.datetime.now().strftime('%Y-%m-%d %H:%M')]
+            with open(cf, 'rb') as f:
+                cookies = pickle.load(f)            
+            get_success = True
+            break
+        else:
+            if how_many_used >= COOKIE_MAX_REUSE:
+                del cookie_log[pcid]
+                #todo: 파일 삭제
+                os.remove(cf)
+                write_executor.submit(thread_json_dump, ua_cookie_log, cookie_log)
+                write_executor.submit(thread_json_dump, ua_cookie_log[:-3] + str('backup.json'), cookie_log)
+            else:
+                cookie_log[pcid] = [how_many_used + 1, datetime.datetime.now().strftime('%Y-%m-%d %H:%M')]
+                with open(cf, 'rb') as f:
+                    cookies = pickle.load(f)                
+                get_success = True
+                break
+    if get_success:        
+        c_cookies_before = session.cookie_jar.filter_cookies('http://coupang.com')
+        print(f'update cookies before: {c_cookies_before}')
+        session._cookie_jar.update_cookies(cookies)
+        c_cookies_after = session.cookie_jar.filter_cookies('http://coupang.com')
+        print(f'update cookies after: {c_cookies_after}')
+        write_executor.submit(thread_json_dump, ua_cookie_log, cookie_log)
+        write_executor.submit(thread_json_dump, ua_cookie_log[:-3] + str('backup.json'), cookie_log)    
+    else:
+        print('활용가능한 쿠키가 없어 사전 로드한 쿠키 없이 작업합니다.')
+        
+        
+def save_cookies(session: CoupangClientSession, header):
+    header_cookie_dir = os.path.join(f"{COOKIE_UA_DIR}", header['Num'])
+    os.makedirs(header_cookie_dir, exist_ok=True)        
+    print(session.cookie_jar)
+    c_cookies = session.cookie_jar.filter_cookies('http://coupang.com')
+    print('c_cookies:', c_cookies)
+    pcid_val = c_cookies['PCID'].value    
+    if not pcid_val:
+        print('pcid 쿠키가 없습니다.(저장 생략)')
+        return
+    with open(f"{header_cookie_dir}/{pcid_val}", 'wb') as f:
+        pickle.dump(c_cookies, f)
+
 
 async def product_ip_log(slot, current_ip):
     _now = datetime.datetime.now()

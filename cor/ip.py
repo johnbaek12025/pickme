@@ -13,17 +13,13 @@ async def get_myip(wait_seconds=180, proxy=None):
 
     st = time.time()
 
-    servers = [
-        'http://ip.dnsexit.com',
+    servers = [        
         'http://ifconfig.me/ip',
-        'http://ipecho.net/plain',
-        'http://checkip.dyndns.org/plain',
+        'http://ipecho.net/plain',        
         'http://myexternalip.com/raw',
         'http://www.trackip.net/',
         'http://icanhazip.com/',
-        'http://formyip.com/',
-        'https://check.torproject.org/',
-        'http://checkip.dyndns.com/',
+        'http://formyip.com/',        
         'http://httpbin.org/ip',
         'https://api.ipify.org',
         'https://v4.ident.me']
@@ -58,6 +54,7 @@ async def get_myip(wait_seconds=180, proxy=None):
         print('아이피 추출을 위해 아이피 체커 사이트 접속 중')
         time.sleep(1)
         qget = q.get()
+        print(f'qget is ----------------------{qget}')
         if re.search('\d+\.\d+\.\d+\.\d+', qget):
             return qget
         else:

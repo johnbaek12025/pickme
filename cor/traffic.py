@@ -9,14 +9,18 @@ import time
 from urllib.parse import quote, parse_qs
 from multidict import CIMultiDict
 from aiohttp import ClientSession, ClientTimeout
+from clientsession import CoupangClientSession
 from bs4 import BeautifulSoup as bf
 import requests
 import traceback
 from cor.Errors import NotFoundProducts, NotParsedSearchId, NotSearchedProductPrice, ServerError, WrongData
-from cor.slotdata import Slot
-
-from cor.trafficlog import add_count_date_log, error_log, product_ip_log, slot_log, vendor_item_log
+from cor.slotdata import Slot, increment_count
+from asyncio.exceptions import TimeoutError
+from aiohttp.client_exceptions import ClientConnectorError
+from cor.trafficlog import add_count_date_log, save_cookies, update_cookies_to, error_log, product_ip_log, slot_log, vendor_item_log
 from cor.common import *
+
+
 file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 timeout = ClientTimeout(total=10)
 retry_max = 3
@@ -29,15 +33,8 @@ async def create_dir(path):
     os.makedirs(path)
 
 
-class CoupangClientSession(ClientSession):    
-    def __init__(self, *args, **kwargs):
-        super(CoupangClientSession, self).__init__(*args, **kwargs)
-        search_id = None
-
-
-async def set_headers(session: CoupangClientSession, headers_list: list):
-    headers = random.choice(headers_list)
-    session._default_headers.update(CIMultiDict(headers))
+async def set_headers(session: CoupangClientSession, header:str):    
+    session._default_headers.update(CIMultiDict(header))
     print(f"headers validation: {session.headers}")
 
 
@@ -51,12 +48,11 @@ async def retry_get(session, retry_max, *args, **kwargs):
                     print(f"{kwargs['url']}: {res.cookies}")
                 except TimeoutError:
                     continue
-                
+                except ClientConnectorError:
+                    continue                
                 else:
-                    if i == 1:
-                        print('두 번째에 성공')         
-                    elif i == 2:
-                        print('센 번째에 성공')         
+                    if i >= 1:
+                        print(f"{i+1}번째 성공-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")
                     return result
             else:
                 status = status                
@@ -66,12 +62,12 @@ async def retry_get(session, retry_max, *args, **kwargs):
 
 
 async def go_main_page(session):
-    url = 'https://m.coupang.com'
-    
+    url = 'https://m.coupang.com'    
     try:
         await retry_get(session, retry_max=retry_max, url=url)
     except ServerError as e:
         raise ServerError(f"coudn't get cookies from main_page")
+    
             
 async def search(session: CoupangClientSession, slot: Slot):
     url = f"https://m.coupang.com/nm/search?q={quote(slot.keyword)}"
@@ -210,11 +206,13 @@ async def product_price_search(**kwargs):
         session.close()
         
 
-async def work(slot, headers_list, current_ip=None):
+async def work(slot, headers_list, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE, current_ip=None):
     try:        
-        ses = CoupangClientSession(timeout=timeout)
+        ses = CoupangClientSession(timeout=timeout)        
         print('헤더 세팅을 시작합니다')
-        await set_headers(session=ses, headers_list=headers_list)
+        header = random.choice(headers_list)
+        await update_cookies_to(ses, header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)
+        await set_headers(session=ses, header=header)
         print('헤더 세팅 완료')
         print('메인 페이지를 접속합니다')
         await go_main_page(session=ses)
@@ -223,8 +221,9 @@ async def work(slot, headers_list, current_ip=None):
         await search(session=ses, slot=slot)
         print(f'검색 완료({slot.keyword})')
         print('클릭을 시도합니다')
-        await click(session=ses, slot=slot)
+        await click(session=ses, slot=slot)        
         print('클릭 완료')
+        save_cookies(ses, header)
         if not slot.not_update:
             await slot_update(slot)
     except NotFoundProducts as e:
@@ -250,6 +249,7 @@ async def work(slot, headers_list, current_ip=None):
         await error_log(slot, tb_str)
     finally:        
         await ses.close()
+        await increment_count(slot)
     
     # 기록
     if current_ip:
@@ -258,3 +258,4 @@ async def work(slot, headers_list, current_ip=None):
     add_count_date_log(_now, 1)
     vendor_item_log(_now, slot)
     slot_log(_now, slot)
+    print(f"current count of {slot.server_pk} of {slot.keyword}  ====== {slot.count}")

@@ -2,7 +2,7 @@
 import datetime
 import os
 
-BASEDIR = os.path.abspath(os.path.dirname(__file__))
+BASEDIR = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 now_datetime = datetime.datetime.today().strftime('%Y%m%d')
 # CONFIG_DIR = os.path.join(BASEDIR, 'config')
 # INFO_DIR = os.path.join(BASEDIR, 'info')
@@ -15,7 +15,7 @@ SLOT_LOG_DIR = os.path.join(_LOG_DIR, 'slots')
 DATE_LOG_DIR = os.path.join(_LOG_DIR, 'date')
 ERROR_LOG_DIR = os.path.join(_LOG_DIR, 'error')
 VENDOR_SLOT_IP_LOG_DIR = os.path.join(_LOG_DIR, 'vendor_log')
-
+COOKIE_UA_DIR = os.path.join(BASEDIR, 'cookie_log')
 
 os.makedirs(_LOG_DIR, exist_ok=True)
 os.makedirs(VENDOR_ITEM_LOG_DIR, exist_ok=True)
@@ -23,4 +23,4 @@ os.makedirs(SLOT_LOG_DIR, exist_ok=True)
 os.makedirs(DATE_LOG_DIR, exist_ok=True)
 os.makedirs(ERROR_LOG_DIR, exist_ok=True)
 os.makedirs(VENDOR_SLOT_IP_LOG_DIR, exist_ok=True)
-
+os.makedirs(COOKIE_UA_DIR, exist_ok=True)
