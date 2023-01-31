@@ -9,7 +9,7 @@ from datetime import timedelta, datetime
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from cor.common import *
 from ip import swap_ip
-from slotdata import fetch_slots, Slot
+from cor.slotdata2 import fetch_slots, Slot
 from traffic import work
 import optparse
 from Errors import *
@@ -38,42 +38,43 @@ async def main(config_dict):
     print(f"CONCURRENCY_MAX: {CONCURRENCY_MAX}")
     print(f"NO_IP_SWAP: {NO_IP_SWAP}")
     print(f"HEADER_LIST = {header_list}")    
-    slots = await fetch_slots(CONCURRENCY_MAX)  #db에서 리스트를 가져옴        
-    now_date = datetime.datetime.today()    
+    slot_chunks = await fetch_slots(CONCURRENCY_MAX)  #db에서 리스트를 가져옴        
+    now_date = datetime.datetime.today()
+    one_hour_after = (now_date + timedelta(hours=1)).strftime('%H')
+    now_datetime = now_date.strftime('%H')
     criteria_date = config_dict['criteria_date']
     current_ip = None
     slot_dict = {}
     i = 0
-    cnt = 0
     while True:
-        print('cnt =================== ', cnt)               
-        if cnt >= 5:            
-            slots = await fetch_slots(CONCURRENCY_MAX)  #db에서 리스트를 가져옴
-            cnt = 0
-            print('-----------------------new slots brought-----------------------')            
-        slot_chunks = list_chunk(slots, CONCURRENCY_MAX)
-        for slot_chunk in slot_chunks: #리스트를 for loop            
-            work_tasks = list()            
+        print('now_datetime =================== ', now_datetime)
+        print('one_hour_after =================== ', one_hour_after)
+        if now_datetime != one_hour_after:            
+            now_datetime = datetime.datetime.today()            
+            one_hour_after = (now_datetime + timedelta(hours=1)).strftime('%H')
+            now_datetime = now_datetime.strftime('%H')
+            slot_chunks = await fetch_slots(CONCURRENCY_MAX)  #db에서 리스트를 가져옴
+            print('-----------------------new slots brought-----------------------')
+        for slot_chunk in slot_chunks: #리스트를 for loop
+            work_tasks = list()
             if not NO_IP_SWAP: # ip 변경여부 config
                 current_ip = await swap_ip()            
             if i <= 300:
                 #result.append({'p_url': 'https://www.coupang.com/vp/products/7054578165?itemId=17475148376&vendorItemId=84642758010&isAddedCart=', 'Keyword': '찰보리빵', 'id': 9999999})
                 work_tasks.append(asyncio.create_task(work(Slot(server_pk=999999, product_id="7054578165", item_id="17475148376",vendor_item_id="84642758010", keyword='찰보리빵', not_update=True), headers_list=header_list, COOKIE_REUSE_INTERVAL=COOKIE_REUSE_INTERVAL , COOKIE_MAX_REUSE=COOKIE_MAX_REUSE, current_ip=current_ip)))
                 i += 1
-            for slot in slot_chunk:                
-                current_date = datetime.datetime.today().strftime('%Y%m%d')                
+            for slot in slot_chunk:
+                print(slot)
+                current_date = datetime.datetime.today().strftime('%Y%m%d')
                 try:
-                    slot_dict[str(slot['server_pk'])]
+                    slot_dict[slot['server_pk']]
                 except KeyError:
-                    slot_dict[str(slot['server_pk'])] = Slot(server_pk=slot['server_pk'], product_id=slot['product_id'], item_id=slot['item_id'], vendor_item_id=slot['vendor_item_id'], keyword=slot['keyword'])                    
+                    slot_dict[slot['server_pk']] = Slot(server_pk=slot['server_pk'], product_id=slot['product_id'], item_id=slot['item_id'], vendor_item_id=slot['vendor_item_id'], keyword=slot['keyword'])
                 if criteria_date != current_date:
-                    i = 0
-                    slot_dict[str(slot['server_pk'])].count = 0
+                    slot_dict[slot['server_pk']].count = 0
                     criteria_date = datetime.datetime.today().strftime('%Y%m%d')
-                print(f"current count of {slot_dict[str(slot['server_pk'])].server_pk} of {slot_dict[str(slot['server_pk'])].keyword}  ====== {slot_dict[str(slot['server_pk'])].count}")
                 work_tasks.append(asyncio.create_task(work(slot=slot_dict[slot['server_pk']], headers_list=header_list, COOKIE_REUSE_INTERVAL=COOKIE_REUSE_INTERVAL , COOKIE_MAX_REUSE=COOKIE_MAX_REUSE, current_ip=current_ip)))
-            await asyncio.gather(*work_tasks) #coroutine 실행
-        cnt += 1
+            await asyncio.gather(*work_tasks) #coroutine 실행        
 
 
 

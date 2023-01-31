@@ -47,8 +47,7 @@ async def retry_get(session, retry_max, *args, **kwargs):
                     result =  await res.text()
                     print(f"{kwargs['url']}: {res.cookies}")
                 except TimeoutError:
-                    continue
-                except ClientConnectorError:
+                    print(f"{i+1}번째 시도-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")
                     continue                
                 else:
                     if i >= 1:
@@ -207,55 +206,54 @@ async def product_price_search(**kwargs):
         
 
 async def work(slot, headers_list, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE, current_ip=None):
-    try:        
-        ses = CoupangClientSession(timeout=timeout)        
-        print('헤더 세팅을 시작합니다')
-        header = random.choice(headers_list)
-        await update_cookies_to(ses, header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)
-        await set_headers(session=ses, header=header)
-        print('헤더 세팅 완료')
-        print('메인 페이지를 접속합니다')
-        await go_main_page(session=ses)
-        print('메인 페이지를 접속 완료')
-        print(f'검색을 시도합니다({slot.keyword})')
-        await search(session=ses, slot=slot)
-        print(f'검색 완료({slot.keyword})')
-        print('클릭을 시도합니다')
-        await click(session=ses, slot=slot)        
-        print('클릭 완료')
-        save_cookies(ses, header)
-        if not slot.not_update:
-            await slot_update(slot)
-    except NotFoundProducts as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except WrongData as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except NotParsedSearchId as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except ServerError as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except FileNotFoundError as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except ValueError as e:
-        await error_log(slot, e)
-        print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
-    except Exception as e:
-        tb_str = traceback.format_exc()        
-        await error_log(slot, tb_str)
-    finally:        
-        await ses.close()
-        await increment_count(slot)
+    async with CoupangClientSession(timeout=timeout) as ses:
+        try:
+            print('헤더 세팅을 시작합니다')
+            header = random.choice(headers_list)
+            await update_cookies_to(ses, header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)
+            await set_headers(session=ses, header=header)
+            print('헤더 세팅 완료')
+            print('메인 페이지를 접속합니다')
+            await go_main_page(session=ses)
+            print('메인 페이지를 접속 완료')
+            print(f'검색을 시도합니다({slot.keyword})')
+            await search(session=ses, slot=slot)
+            print(f'검색 완료({slot.keyword})')
+            print('클릭을 시도합니다')
+            await click(session=ses, slot=slot)        
+            print('클릭 완료')
+            save_cookies(ses, header)
+            if not slot.not_update:
+                await slot_update(slot)
+        except NotFoundProducts as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except WrongData as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except NotParsedSearchId as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except ServerError as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except FileNotFoundError as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except ValueError as e:
+            await error_log(slot, e)
+            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+        except Exception as e:
+            tb_str = traceback.format_exc()        
+            await error_log(slot, tb_str)
+        finally:
+            used_cookie = ses.cookie_jar.filter_cookies('http://coupang.com')['PCID'].value                    
+            await increment_count(slot)
     
     # 기록
     if current_ip:
-        await product_ip_log(slot, current_ip)
+        await product_ip_log(slot, current_ip, used_cookie)
     _now = datetime.datetime.now()
     add_count_date_log(_now, 1)
     vendor_item_log(_now, slot)
-    slot_log(_now, slot)
-    print(f"current count of {slot.server_pk} of {slot.keyword}  ====== {slot.count}")
+    slot_log(_now, slot)    
