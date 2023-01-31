@@ -12,7 +12,6 @@ from aiohttp import ClientSession
 import asyncio
 from common import get_param_dict
 
-
 class Slot:    
     def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id, not_update=False):
         self.server_pk = int(server_pk)
@@ -24,7 +23,6 @@ class Slot:
         self.count = 0
         self.lock = asyncio.Lock()
 
-
 async def increment_count(obj):
     async with obj.lock:
         obj.count += 1
@@ -32,6 +30,7 @@ async def increment_count(obj):
 
 async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
     # todo: slot 정보를 불러와서 Slot 으로 객체화하여 리스트에 반환    
+
     slots = await get_data_set(CONCURRENCY_MAX)
     
     test_chunk = []    
@@ -66,7 +65,7 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
     return test_chunk
 
 
-async def get_data_set(CONCURRENCY_MAX):        
+async def get_data_set(CONCURRENCY_MAX):
     url = 'https://api.wooriq.com/cp/cp_keysel.php'
     semaphore = asyncio.Semaphore(CONCURRENCY_MAX)
     async with semaphore:

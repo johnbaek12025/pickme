@@ -75,8 +75,6 @@ async def main(config_dict):
             await asyncio.gather(*work_tasks) #coroutine 실행
         cnt += 1
 
-
-
 async def read_json(path):
     with open(path, 'rt', encoding='utf-8-sig') as f:
         data = f.read()
