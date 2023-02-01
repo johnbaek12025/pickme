@@ -14,7 +14,7 @@ from common import get_param_dict
 
 class Slot:    
     def __init__(self, server_pk, keyword, product_id, item_id, vendor_item_id, not_update=False):
-        self.server_pk = int(server_pk)
+        self.server_pk = str(server_pk)
         self.keyword = keyword
         self.product_id = product_id
         self.item_id = item_id

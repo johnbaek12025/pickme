@@ -13,6 +13,7 @@ from cor.common import *
 from cor.path import DATE_LOG_DIR, DETAIL_LOG_DIR, ERROR_LOG_DIR, SLOT_LOG_DIR, VENDOR_ITEM_LOG_DIR, COOKIE_UA_DIR
 from cor.slotdata import Slot
 import pickle
+from http import cookies
 write_executor = ThreadPoolExecutor(max_workers=1)
 
 
@@ -26,8 +27,8 @@ def extract_cookie(header_id, path):
     pcid = re.sub(f".+/{header_id}/", "", path)
     return pcid
     
-
-async def update_cookies_to(session: CoupangClientSession, header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE):
+# async def update_cookies_to(header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)->cookies.BaseCookie:
+async def update_cookies_to(session:CoupangClientSession, header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)->cookies.BaseCookie:
     header_cookie_dir = os.path.join(f"{COOKIE_UA_DIR}", header['Num'])
     os.makedirs(header_cookie_dir, exist_ok=True)
     ua_cookie_log = os.path.join(f"{COOKIE_UA_DIR}", "cookie_log.json")    
@@ -50,7 +51,7 @@ async def update_cookies_to(session: CoupangClientSession, header, COOKIE_REUSE_
         if how_many_used <= COOKIE_MAX_REUSE:
             cookie_log[pcid] = [how_many_used + 1, datetime.datetime.now().strftime('%Y-%m-%d %H:%M')]
             with open(cf, 'rb') as f:
-                cookies = pickle.load(f)            
+                cookie_set = pickle.load(f)            
             get_success = True
             break
         else:
@@ -63,33 +64,35 @@ async def update_cookies_to(session: CoupangClientSession, header, COOKIE_REUSE_
             else:
                 cookie_log[pcid] = [how_many_used + 1, datetime.datetime.now().strftime('%Y-%m-%d %H:%M')]
                 with open(cf, 'rb') as f:
-                    cookies = pickle.load(f)                
+                    cookie_set = pickle.load(f)                
                 get_success = True
                 break
-    if get_success:        
-        c_cookies_before = session.cookie_jar.filter_cookies('http://coupang.com')
-        print(f'update cookies before: {c_cookies_before}')
-        session._cookie_jar.update_cookies(cookies)
-        c_cookies_after = session.cookie_jar.filter_cookies('http://coupang.com')
-        print(f'update cookies after: {c_cookies_after}')
+    if get_success:
+        print(cookie_set['PCID'], f"vars: {vars(cookie_set['PCID'])}")
+        print('brought Cookies ========================', type(cookie_set), cookie_set)
+        cookies_before = session.cookie_jar.filter_cookies('http://coupang.com')
+        print(f'update cookies before: {cookies_before}')
+        session.cookie_jar.update_cookies(cookie_set)
+        cookies_after = session.cookie_jar.filter_cookies('http://coupang.com')
+        print(f'update cookies after: {cookies_after}')
         write_executor.submit(thread_json_dump, ua_cookie_log, cookie_log)
         write_executor.submit(thread_json_dump, ua_cookie_log[:-3] + str('backup.json'), cookie_log)    
+        return cookie_set['PCID']._coded_value
     else:
         print('활용가능한 쿠키가 없어 사전 로드한 쿠키 없이 작업합니다.')
         
         
-def save_cookies(session: CoupangClientSession, header):
+def save_cookies(cookies, header):
     header_cookie_dir = os.path.join(f"{COOKIE_UA_DIR}", header['Num'])
-    os.makedirs(header_cookie_dir, exist_ok=True)
-    print(session.cookie_jar)
-    c_cookies = session.cookie_jar.filter_cookies('http://coupang.com')
-    print('c_cookies:', c_cookies)
-    pcid_val = c_cookies['PCID'].value
-    if not pcid_val:
+    os.makedirs(header_cookie_dir, exist_ok=True)    
+    try:
+        pcid_val = cookies['PCID'].value        
+    except KeyError:
         print('pcid 쿠키가 없습니다.(저장 생략)')
-        return
-    with open(f"{header_cookie_dir}/{pcid_val}", 'wb') as f:
-        pickle.dump(c_cookies, f)
+    else:        
+        with open(f"{header_cookie_dir}/{pcid_val}", 'wb') as f:
+            pickle.dump(cookies , f)
+        return pcid_val
 
 
 async def product_ip_log(slot:Slot, current_ip, used_cookie):
@@ -103,8 +106,8 @@ async def product_ip_log(slot:Slot, current_ip, used_cookie):
         with open(ip_log_file_path, 'r', encoding='utf-8') as f:
             log_info = json.load(f)
     else:        
-        log_info = {slot.vendor_item_id: {'ip_log': {current_ip: {slot.server_pk: {slot.keyword: []}}}, 'slot_count':{slot.server_pk: 0}, 'cookie_log': {used_cookie: []}}}
-    try:
+        log_info = {slot.vendor_item_id: {'ip_log': {}, 'slot_count': {}, 'cookie_log': {}}}
+    try:        
         log_info[slot.vendor_item_id]['ip_log']
     except KeyError:
         log_info[slot.vendor_item_id]['ip_log'] = {current_ip: {slot.server_pk: {slot.keyword: []}}}
@@ -119,26 +122,18 @@ async def product_ip_log(slot:Slot, current_ip, used_cookie):
     try:
         log_info[slot.vendor_item_id]['ip_log'][current_ip][slot.server_pk][slot.keyword]
     except KeyError:
-        log_info[slot.vendor_item_id]['ip_log'][current_ip][slot.server_pk][slot.keyword] = list()
-    try:
-        log_info[slot.vendor_item_id]['slot_count']
-    except KeyError:
-        log_info[slot.vendor_item_id]['slot_count'] = {slot.server_pk: 0}
+        log_info[slot.vendor_item_id]['ip_log'][current_ip][slot.server_pk][slot.keyword] = list()    
+    log_info[slot.vendor_item_id]['ip_log'][current_ip][slot.server_pk][slot.keyword].append(today_time)
     try:
         log_info[slot.vendor_item_id]['slot_count'][slot.server_pk]
     except KeyError:
-        log_info[slot.vendor_item_id]['slot_count'][slot.server_pk] = 0
-    try:
-        log_info[slot.vendor_item_id]['cookie_log']
-    except KeyError:
-        log_info[slot.vendor_item_id]['cookie_log'] = {used_cookie: []}
+         log_info[slot.vendor_item_id]['slot_count'][slot.server_pk] = 0
+    log_info[slot.vendor_item_id]['slot_count'][slot.server_pk] += 1
     try:
         log_info[slot.vendor_item_id]['cookie_log'][used_cookie]
     except KeyError:
-        log_info[slot.vendor_item_id]['cookie_log'][used_cookie] = []
-    log_info[slot.vendor_item_id]['ip_log'][current_ip][slot.server_pk][slot.keyword].append(today_time)
-    log_info[slot.vendor_item_id]['slot_count'][slot.server_pk] += 1
-    log_info[slot.vendor_item_id]['cookie_log'][used_cookie].append(today_time)    
+        log_info[slot.vendor_item_id]['cookie_log'][used_cookie] = list()
+    log_info[slot.vendor_item_id]['cookie_log'][used_cookie].append(today_time)
     write_executor.submit(thread_json_dump, ip_log_file_path, log_info)
 
 

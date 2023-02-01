@@ -33,10 +33,10 @@ async def create_dir(path):
     os.makedirs(path)
 
 
-async def set_headers(session: CoupangClientSession, header:str):    
+async def set_headers(session: CoupangClientSession, header):
     session._default_headers.update(CIMultiDict(header))
     print(f"headers validation: {session.headers}")
-
+    
 
 async def retry_get(session, retry_max, *args, **kwargs):    
     for i in range(retry_max):
@@ -44,35 +44,40 @@ async def retry_get(session, retry_max, *args, **kwargs):
         async with session.get(*args, **kwargs) as res:
             if status := res.status == 200:
                 try:
-                    result =  await res.text()
-                    print(f"{kwargs['url']}: {res.cookies}")
+                    result = await res.text()
+                    cookies = res.cookies
                 except TimeoutError:
                     print(f"{i+1}번째 시도-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")
                     continue                
                 else:
                     if i >= 1:
-                        print(f"{i+1}번째 성공-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")
-                    return result
+                        print(f"{i+1}번째 성공-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")                    
+                    return result, cookies
             else:
-                status = status                
+                status = status
+                print(status)
                 continue
     raise ServerError(f"{status}")
     
 
 
-async def go_main_page(session):
+async def go_main_page(session, header):
     url = 'https://m.coupang.com'    
     try:
-        await retry_get(session, retry_max=retry_max, url=url)
+        info, cookies = await retry_get(session, retry_max=retry_max, url=url)                
     except ServerError as e:
         raise ServerError(f"coudn't get cookies from main_page")
+    else:
+        return save_cookies(cookies, header)
+        
+        
     
             
 async def search(session: CoupangClientSession, slot: Slot):
     url = f"https://m.coupang.com/nm/search?q={quote(slot.keyword)}"
     print(f"search url {url}")
     try:
-        info = await retry_get(session, retry_max=retry_max, url=url)
+        info, cookies = await retry_get(session, retry_max=retry_max, url=url)
     except ServerError as e:
         raise(f"{slot.keyword} couldn't find searchId")
     # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
@@ -109,12 +114,10 @@ async def click(session: CoupangClientSession, slot: Slot):
     except ValueError as e:
         print('item_id 또는 product_id, vendor_item_id의 값에 이상이 있습니다.')
         raise WrongData('item_id 또는 product_id, vendor_item_id의 값에 이상이 있습니다.')
-
-    
     print(slot.product_id, slot.item_id, slot.keyword, session.search_id)
     print('url:', url1)
     try:
-        info = await retry_get(session, retry_max=retry_max, url=url1)
+        info, cookies = await retry_get(session, retry_max=retry_max, url=url1)
     except ServerError as e:
         raise(f"{url1} couldn't click")
     
@@ -127,7 +130,7 @@ async def click(session: CoupangClientSession, slot: Slot):
     if isinstance(to_bool(fashion), bool):
         url2 = f"https://m.coupang.com/vm/products/{slot.product_id}/brand-sdp/items/{slot.item_id}/?vendorItemId={slot.vendor_item_id}&style=MOBILE_BROWSER&isFashion={fashion}"
         try:
-            info = await retry_get(session, retry_max=retry_max, url=url2)
+            info, cookies = await retry_get(session, retry_max=retry_max, url=url2)
         except ServerError as e:
             raise(f"{url2} couldn't click")
         dir_path = f'{file_path}\\coro_test'
@@ -136,7 +139,6 @@ async def click(session: CoupangClientSession, slot: Slot):
             await save_traffic_log('success', f"{dir_path}\\{slot.product_id}itemId={slot.item_id}.txt")
         except FileNotFoundError as e:
             raise (f'{slot.keyword} {e} in click')
-        
     else:
         raise ValueError('fashion을 가져오지 못 함')
 
@@ -206,23 +208,27 @@ async def product_price_search(**kwargs):
         
 
 async def work(slot, headers_list, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE, current_ip=None):
+    # header = random.choice(headers_list)
+    # cookies = await update_cookies_to(header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)
+    # print(type(cookies))
     async with CoupangClientSession(timeout=timeout) as ses:
         try:
-            print('헤더 세팅을 시작합니다')
             header = random.choice(headers_list)
-            await update_cookies_to(ses, header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)
-            await set_headers(session=ses, header=header)
+            pcid1 = await update_cookies_to(ses,header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)            
+            print('헤더 세팅을 시작합니다')            
+            await set_headers(session=ses, header=header)  
             print('헤더 세팅 완료')
             print('메인 페이지를 접속합니다')
-            await go_main_page(session=ses)
+            pcid2 = await go_main_page(session=ses, header=header)
             print('메인 페이지를 접속 완료')
             print(f'검색을 시도합니다({slot.keyword})')
             await search(session=ses, slot=slot)
             print(f'검색 완료({slot.keyword})')
             print('클릭을 시도합니다')
-            await click(session=ses, slot=slot)        
-            print('클릭 완료')
-            save_cookies(ses, header)
+            await click(session=ses, slot=slot)
+            print('클릭 완료')            
+            if current_ip:                
+                await product_ip_log(slot, current_ip, pcid1) if pcid1 else await product_ip_log(slot, current_ip, pcid2)                
             if not slot.not_update:
                 await slot_update(slot)
         except NotFoundProducts as e:
@@ -247,13 +253,9 @@ async def work(slot, headers_list, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE, curr
             tb_str = traceback.format_exc()        
             await error_log(slot, tb_str)
         finally:
-            used_cookie = ses.cookie_jar.filter_cookies('http://coupang.com')['PCID'].value                    
-            await increment_count(slot)
-    
-    # 기록
-    if current_ip:
-        await product_ip_log(slot, current_ip, used_cookie)
+            await increment_count(slot)    
+    # 기록    
     _now = datetime.datetime.now()
     add_count_date_log(_now, 1)
     vendor_item_log(_now, slot)
-    slot_log(_now, slot)    
+    slot_log(_now, slot)
