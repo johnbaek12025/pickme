@@ -26,8 +26,7 @@ def extract_cookie(header_id, path):
     path = path.replace('\\', '/')
     pcid = re.sub(f".+/{header_id}/", "", path)
     return pcid
-    
-# async def update_cookies_to(header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)->cookies.BaseCookie:
+   
 async def update_cookies_to(session:CoupangClientSession, header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)->cookies.BaseCookie:
     header_cookie_dir = os.path.join(f"{COOKIE_UA_DIR}", header['Num'])
     os.makedirs(header_cookie_dir, exist_ok=True)
@@ -68,27 +67,35 @@ async def update_cookies_to(session:CoupangClientSession, header, COOKIE_REUSE_I
                 get_success = True
                 break
     if get_success:
-        print(cookie_set['PCID'], f"vars: {vars(cookie_set['PCID'])}")
-        print('brought Cookies ========================', type(cookie_set), cookie_set)
+        # print(cookie_set['PCID'], f"vars: {vars(cookie_set['PCID'])}")
+        # print('brought Cookies ========================', type(cookie_set), cookie_set)
         cookies_before = session.cookie_jar.filter_cookies('http://coupang.com')
         print(f'update cookies before: {cookies_before}')
-        session.cookie_jar.update_cookies(cookie_set)
+        cookie_data = {}
+        for k in ['PCID', 'sid', '_abck']:
+            print(f"------------------------------{cookie_set[k]}")
+            cookie_data[k] = cookie_set[k]
+        session.cookie_jar.update_cookies(cookie_data)
         cookies_after = session.cookie_jar.filter_cookies('http://coupang.com')
-        print(f'update cookies after: {cookies_after}')
+        # print(f'update cookies after: {cookies_after}')
         write_executor.submit(thread_json_dump, ua_cookie_log, cookie_log)
         write_executor.submit(thread_json_dump, ua_cookie_log[:-3] + str('backup.json'), cookie_log)    
         return cookie_set['PCID']._coded_value
     else:
         print('활용가능한 쿠키가 없어 사전 로드한 쿠키 없이 작업합니다.')
+        pass
         
         
 def save_cookies(cookies, header):
     header_cookie_dir = os.path.join(f"{COOKIE_UA_DIR}", header['Num'])
-    os.makedirs(header_cookie_dir, exist_ok=True)    
+    os.makedirs(header_cookie_dir, exist_ok=True)
+    print(cookies)
+    print('\n')
     try:
-        pcid_val = cookies['PCID'].value        
+        pcid_val = cookies['PCID'].value
     except KeyError:
-        print('pcid 쿠키가 없습니다.(저장 생략)')
+        # print('pcid 쿠키가 없습니다.(저장 생략)')
+        pass
     else:        
         with open(f"{header_cookie_dir}/{pcid_val}", 'wb') as f:
             pickle.dump(cookies , f)

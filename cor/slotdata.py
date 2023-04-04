@@ -53,14 +53,17 @@ async def fetch_slots(CONCURRENCY_MAX) -> List[Slot]:
         residue = re.sub(r'\?.+', '', s['p_url'])
         res = get_param_dict(s['p_url'])
         product_id = re.sub(r'[^0-9]+', '', residue)
-        res['productId'] = product_id
+        res['productId'] = product_id        
         try:
             test_chunk.append({"server_pk": s['id'], "product_id": res['productId'], "item_id": res["itemId"], "vendor_item_id": res["vendorItemId"], "keyword": s['Keyword']})                
         except KeyError:
             try:
                 test_chunk.append({"server_pk": s['id'], "product_id": res['productId'], "item_id": res["vendorItemId"], "vendor_item_id": res["vendorItemId"], "keyword": s['Keyword']})
             except KeyError:
-                test_chunk.append({"server_pk": s['id'], "product_id": res['productId'], "item_id": res["itemId"], "vendor_item_id": res["itemId"], "keyword": s['Keyword']})
+                try:
+                    test_chunk.append({"server_pk": s['id'], "product_id": res['productId'], "item_id": res["itemId"], "vendor_item_id": res["itemId"], "keyword": s['Keyword']})
+                except KeyError:
+                    continue
         random.shuffle(test_chunk)
     return test_chunk
 

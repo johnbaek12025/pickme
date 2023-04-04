@@ -11,7 +11,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.json
-
+main_test.py
 # C extensions
 *.so
 

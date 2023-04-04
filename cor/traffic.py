@@ -6,7 +6,7 @@ import os
 import random
 import re
 import time
-from urllib.parse import quote, parse_qs
+from urllib.parse import quote, parse_qs, urlencode
 from multidict import CIMultiDict
 from aiohttp import ClientSession, ClientTimeout
 from clientsession import CoupangClientSession
@@ -19,8 +19,9 @@ from asyncio.exceptions import TimeoutError
 from aiohttp.client_exceptions import ClientConnectorError
 from cor.trafficlog import add_count_date_log, save_cookies, update_cookies_to, error_log, product_ip_log, slot_log, vendor_item_log
 from cor.common import *
-
-
+from http import cookies
+bundle_ID = "11"
+C_APP_V = "3.8.8"
 file_path = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 timeout = ClientTimeout(total=10)
 retry_max = 3
@@ -35,10 +36,10 @@ async def create_dir(path):
 
 async def set_headers(session: CoupangClientSession, header):
     session._default_headers.update(CIMultiDict(header))
-    print(f"headers validation: {session.headers}")
+    #print(f"headers validation: {session.headers}")
     
 
-async def retry_get(session, retry_max, *args, **kwargs):    
+async def retry_get(session: CoupangClientSession, retry_max, *args, **kwargs):    
     for i in range(retry_max):
         await asyncio.sleep(0.5)
         async with session.get(*args, **kwargs) as res:
@@ -47,41 +48,43 @@ async def retry_get(session, retry_max, *args, **kwargs):
                     result = await res.text()
                     cookies = res.cookies
                 except TimeoutError:
-                    print(f"{i+1}번째 시도-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")
+                    #print(f"{i+1}번째 시도-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")
                     continue                
                 else:
                     if i >= 1:
-                        print(f"{i+1}번째 성공-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")                    
+                        #print(f"{i+1}번째 성공-----------------------------------\n-----------------------------------\n-------------------------------------------------------------")                    
+                        pass
                     return result, cookies
             else:
                 status = status
-                print(status)
+                #print(status)
                 continue
     raise ServerError(f"{status}")
     
 
 
-async def go_main_page(session, header):
+async def go_main_page(session):
     url = 'https://m.coupang.com'    
     try:
         info, cookies = await retry_get(session, retry_max=retry_max, url=url)                
     except ServerError as e:
         raise ServerError(f"coudn't get cookies from main_page")
-    else:
-        return save_cookies(cookies, header)
+    
+        
         
         
     
             
 async def search(session: CoupangClientSession, slot: Slot):
     url = f"https://m.coupang.com/nm/search?q={quote(slot.keyword)}"
-    print(f"search url {url}")
+    #print(f"search url {url}")
     try:
         info, cookies = await retry_get(session, retry_max=retry_max, url=url)
     except ServerError as e:
         raise(f"{slot.keyword} couldn't find searchId")
     # todo: res 가 정상적인지 쿠키는 받아와졌는지 검증(출력)
-    # todo: search_id 파싱 후 session.search_id = 할당 및 검증(출력)    
+    # todo: search_id 파싱 후 session.search_id = 할당 및 검증(출력)   
+    #print('cookies in search_function:----------------------------\n', cookies)
     data = bf(info, 'html.parser')
     li_tags = data.find_all('li', {'class': "plp-default__item"})
     if len(li_tags) == 0:
@@ -96,52 +99,47 @@ async def search(session: CoupangClientSession, slot: Slot):
     qs = parse_qs(product_link_href)
     search_id = qs['searchId'][0]
     session.search_id = search_id
-    print(f'session.search_id = {search_id}')
+    #print(f'session.search_id = {search_id}')
     
 
     # 검증
     if _l := len(session.search_id) != 32:
-        print(f'search_id 자리수가 32가 아닙니다({_l})({session.search_id})')
+        #print(f'search_id 자리수가 32가 아닙니다({_l})({session.search_id})')
+        pass
     if re_search := re.search('[^a-z0-9]', session.search_id):
-        print(f'파싱이 잘못되었거나 갑의 형식이 바뀌었을 수 있습니다. 소문자와 숫자가 아닌 문자({re_search.group()})가 삽입되어 있습니다.({search_id.search_id})')
+        #print(f'파싱이 잘못되었거나 갑의 형식이 바뀌었을 수 있습니다. 소문자와 숫자가 아닌 문자({re_search.group()})가 삽입되어 있습니다.({search_id.search_id})')
+        pass
 
 
-
-async def click(session: CoupangClientSession, slot: Slot):
-    url1 = f"https://m.coupang.com/vm/products/{slot.product_id}?itemId={slot.item_id}&q={quote(slot.keyword)}&searchId={session.search_id}"
+async def click(session: CoupangClientSession, slot: Slot, header):
+    url1 = f"https://m.coupang.com/vm/products/{slot.product_id}?itemId={slot.item_id}&q={quote(slot.keyword)}&searchId={session.search_id}&filterKey="
     try:
         int(slot.item_id), int(slot.product_id), int(slot.vendor_item_id)
     except ValueError as e:
-        print('item_id 또는 product_id, vendor_item_id의 값에 이상이 있습니다.')
+            #print('item_id 또는 product_id, vendor_item_id의 값에 이상이 있습니다.')
         raise WrongData('item_id 또는 product_id, vendor_item_id의 값에 이상이 있습니다.')
-    print(slot.product_id, slot.item_id, slot.keyword, session.search_id)
-    print('url:', url1)
+        
     try:
-        info, cookies = await retry_get(session, retry_max=retry_max, url=url1)
+        info, cookie_set = await retry_get(session, retry_max=retry_max, url=url1)
     except ServerError as e:
         raise(f"{url1} couldn't click")
-    
-    data = bf(info, 'html.parser')    
-    children = data.findChild('div', {"id": "wrap"})
-    child_bool = children.find('div', {'data-fashion-flag': "false"})
-    if not child_bool:
-        child_bool = children.find('div', {'data-fashion-flag': "true"})
-    fashion = child_bool['data-fashion-flag']
-    if isinstance(to_bool(fashion), bool):
-        url2 = f"https://m.coupang.com/vm/products/{slot.product_id}/brand-sdp/items/{slot.item_id}/?vendorItemId={slot.vendor_item_id}&style=MOBILE_BROWSER&isFashion={fashion}"
-        try:
-            info, cookies = await retry_get(session, retry_max=retry_max, url=url2)
-        except ServerError as e:
-            raise(f"{url2} couldn't click")
-        dir_path = f'{file_path}\\coro_test'
-        await create_dir(dir_path)    
-        try:
-            await save_traffic_log('success', f"{dir_path}\\{slot.product_id}itemId={slot.item_id}.txt")
-        except FileNotFoundError as e:
-            raise (f'{slot.keyword} {e} in click')
-    else:
-        raise ValueError('fashion을 가져오지 못 함')
-
+    #await save_traffic_log(info, f'{slot.vendor_item_id}.html')    
+    url2 = f"https://m.coupang.com/vm/v4/enhanced-pdp/products/{slot.product_id}?bundleId={bundle_ID}&vendorItemId={slot.vendor_item_id}&appVer={C_APP_V}&applyReconciliation=true&applyPddStandizing=true&threePlBadge=true&newGlobalBadge=true&priceGuaranteeBadge=true&applyNps=true"
+    print(url2)
+    print('\n')
+    try:
+        info, cookie_set = await retry_get(session, retry_max=retry_max, url=url2)
+    except ServerError as e:
+        raise(f"{url2} couldn't click")        
+    url3 = f"https://m.coupang.com/vm/products/{slot.product_id}/recommendations/also-bought?itemId={slot.item_id}&vendorItemId={slot.vendor_item_id}&newPeopleAlsoBought=true&freshProduct=false&memberEligible=true"
+    try:
+        info, cookie_set = await retry_get(session, retry_max=retry_max, url=url3)
+    except ServerError as e:
+        raise(f"{url3} couldn't click")        
+    else:      
+        print(url3)
+        print('\n')  
+        return save_cookies(cookie_set, header)    
 
 async def slot_update(slot):
     await asyncio.sleep(0.5)
@@ -153,7 +151,7 @@ async def slot_update(slot):
                 print(f"slot_update result: {result}")            
             else:            
                 print('fail update of the slot')
-    
+                pass
 
 async def save_traffic_log(data, file_name):    
     with open(file_name, 'w', encoding='utf-8') as f:
@@ -165,7 +163,7 @@ def status_validation(url, session):
         try:
             res = session.get(url)
         except Exception as e:
-            print(f'url: {url} {e}')
+            #print(f'url: {url} {e}')
             raise (e)
         if res.status_code == 200:            
             try:                
@@ -210,52 +208,54 @@ async def product_price_search(**kwargs):
 async def work(slot, headers_list, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE, current_ip=None):
     # header = random.choice(headers_list)
     # cookies = await update_cookies_to(header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)
-    # print(type(cookies))
+    ## print(type(cookies))
+    pcid1 = None
+    _now = datetime.datetime.now()    
     async with CoupangClientSession(timeout=timeout) as ses:
         try:
             header = random.choice(headers_list)
-            pcid1 = await update_cookies_to(ses,header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)            
-            print('헤더 세팅을 시작합니다')            
+            pcid1 = await update_cookies_to(ses,header, COOKIE_REUSE_INTERVAL, COOKIE_MAX_REUSE)                        
+            #print('헤더 세팅을 시작합니다')            
             await set_headers(session=ses, header=header)  
-            print('헤더 세팅 완료')
-            print('메인 페이지를 접속합니다')
-            pcid2 = await go_main_page(session=ses, header=header)
-            print('메인 페이지를 접속 완료')
-            print(f'검색을 시도합니다({slot.keyword})')
+            #print('헤더 세팅 완료')
+            #print('메인 페이지를 접속합니다')
+            await go_main_page(session=ses)
+            # print('메인 페이지를 접속 완료')
+            # print(f'검색을 시도합니다({slot.keyword})')
             await search(session=ses, slot=slot)
             print(f'검색 완료({slot.keyword})')
             print('클릭을 시도합니다')
-            await click(session=ses, slot=slot)
+            pcid2 = await click(session=ses, slot=slot, header=header)
             print('클릭 완료')            
             if current_ip:                
                 await product_ip_log(slot, current_ip, pcid1) if pcid1 else await product_ip_log(slot, current_ip, pcid2)                
             if not slot.not_update:
                 await slot_update(slot)
+            
         except NotFoundProducts as e:
             await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+            #print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
         except WrongData as e:
             await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+            #print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
         except NotParsedSearchId as e:
             await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+            #print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
         except ServerError as e:
             await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+            #print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
         except FileNotFoundError as e:
             await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+            #print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
         except ValueError as e:
             await error_log(slot, e)
-            print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
+            #print(f"{slot.keyword}, {slot.product_id}_{slot.item_id}_{slot.vendor_item_id}: {e}")
         except Exception as e:
             tb_str = traceback.format_exc()        
             await error_log(slot, tb_str)
         finally:
             await increment_count(slot)    
     # 기록    
-    _now = datetime.datetime.now()
     add_count_date_log(_now, 1)
-    vendor_item_log(_now, slot)
-    slot_log(_now, slot)
+    # vendor_item_log(_now, slot)
+    # slot_log(_now, slot)
