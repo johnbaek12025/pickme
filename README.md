@@ -52,5 +52,5 @@ self.connect_to_db()
 ## 2. 프로그램 구성
 ####1. main.py - 비동기 프로세스 전반적인 통제<br>2. slotdata.py - 각 상품의 객체 list 생성 및 무작위 순서 적용<br>traffic.py - 유효 트래픽 처리를 위한 세부적인 단계 관리<br>trafficlog.py - traffic.py에서 각 단계별 logging 관리<br>ip.py - tethering을 통한 ip변경
 
-## 4. 실행
+## 3. 실행
 #### #### 1. pip install -r requirements.txt<br>/cor 폴더에서 python main.py --config=../cfg/config.cfg 실행
